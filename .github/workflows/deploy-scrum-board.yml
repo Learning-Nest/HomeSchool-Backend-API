@@ -1,0 +1,38 @@
+# Publishes scrum-board/index.html to GitHub Pages on every push to main that touches it, so the team
+# board has a real public URL instead of being opened as a local file (which the browser's CORS rules
+# block from reaching the API, and which no one else on the team can open anyway).
+#
+# One-time setup this workflow can't do for you: in GitHub, go to this repo's Settings -> Pages and set
+# "Build and deployment: Source" to "GitHub Actions" (it defaults to "Deploy from a branch"). After that,
+# every push to main publishes automatically.
+name: Deploy scrum board to Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["scrum-board/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: scrum-board
+      - id: deployment
+        uses: actions/deploy-pages@v4
