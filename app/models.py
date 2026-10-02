@@ -339,3 +339,33 @@ class OutboxEvent(Base):
     created_at: Mapped[datetime] = _now()
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Scrum board (internal team tool, unrelated to family/child data) -----------------------------------------------
+# Not covered by Row-Level Security: these tables hold no family-scoped data, just an internal task board for the
+# people building the app. Access is controlled entirely in app/routers/scrum.py via a per-person access code.
+class ScrumMember(Base):
+    __tablename__ = "scrum_members"
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    access_code_digest: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    created_at: Mapped[datetime] = _now()
+
+
+class ScrumTask(Base):
+    __tablename__ = "scrum_tasks"
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(Text, default="dev", server_default="dev")
+    status: Mapped[str] = mapped_column(Text, default="backlog", server_default="backlog")
+    assignee_name: Mapped[str | None] = mapped_column(Text)
+    sprint: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    created_by_member_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("scrum_members.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = _now()
+    updated_at: Mapped[datetime] = _now()

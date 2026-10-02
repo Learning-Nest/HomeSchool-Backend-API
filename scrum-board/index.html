@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HomeSchoolingApp — Team Board</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --border: #e2e5ea;
+    --text: #1c222b;
+    --muted: #6b7280;
+    --accent: #3b5bdb;
+    --accent-weak: #e8ecfb;
+    --danger: #d64545;
+    --radius: 10px;
+    --cat-content: #0f9d8c;
+    --cat-dev: #3b5bdb;
+    --cat-design: #c2762b;
+    --cat-other: #6b7280;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  button { font-family: inherit; cursor: pointer; }
+  input, textarea, select { font-family: inherit; font-size: 14px; }
+
+  /* ---------- top bar ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .who { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+  .pill {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--accent-weak);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .icon-btn {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .icon-btn:hover { background: var(--bg); }
+
+  /* ---------- login ---------- */
+  .center-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    width: 100%;
+    max-width: 380px;
+  }
+  .card h2 { margin: 0 0 6px; font-size: 18px; }
+  .card p.sub { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 12px 0 4px; }
+  input[type="text"], textarea, select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  textarea { resize: vertical; min-height: 70px; }
+  .btn {
+    display: inline-block;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn.secondary { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+  .btn.danger { background: var(--danger); color: #fff; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn-row { display: flex; gap: 8px; margin-top: 18px; }
+  .error-msg { color: var(--danger); font-size: 13px; margin-top: 10px; min-height: 16px; }
+  .link-btn { background: none; border: none; color: var(--accent); font-size: 13px; padding: 0; text-decoration: underline; }
+
+  /* ---------- board ---------- */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .chip {
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .spacer { flex: 1; }
+
+  .progress-wrap { padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .progress-stats { display: flex; gap: 18px; font-size: 12px; color: var(--muted); margin-bottom: 6px; flex-wrap: wrap; }
+  .progress-stats b { color: var(--text); }
+  .progress-bar-track { height: 8px; border-radius: 999px; background: var(--bg); overflow: hidden; display: flex; }
+  .progress-bar-seg { height: 100%; }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(220px, 1fr));
+    gap: 14px;
+    padding: 16px 20px 40px;
+    overflow-x: auto;
+  }
+  .column {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    min-height: 200px;
+  }
+  .column.drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+  .column-head {
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+  }
+  .column-head span.count { color: var(--muted); font-weight: 500; }
+  .column-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+
+  .task-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    cursor: grab;
+    font-size: 13px;
+  }
+  .task-card:active { cursor: grabbing; }
+  .task-card.dragging { opacity: 0.4; }
+  .task-title { font-weight: 600; margin-bottom: 6px; }
+  .task-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+  .cat-badge { font-size: 10px; padding: 2px 7px; border-radius: 999px; color: #fff; font-weight: 600; }
+  .assignee-badge { font-size: 11px; color: var(--muted); }
+  .sprint-badge { font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; }
+
+  .empty-col { font-size: 12px; color: var(--muted); text-align: center; padding: 20px 6px; }
+
+  /* ---------- modal ---------- */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(20,22,28,0.4);
+    display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50;
+  }
+  .modal { background: #fff; border-radius: var(--radius); padding: 22px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; }
+  .modal h3 { margin: 0 0 14px; font-size: 16px; }
+  .modal .btn-row { justify-content: space-between; }
+  .hidden { display: none !important; }
+  .toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: #1c222b; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 13px; z-index: 60;
+  }
+  table.members { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  table.members th, table.members td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+  code.access-code { background: var(--accent-weak); color: var(--accent); padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- ============== LOGIN SCREEN ============== -->
+<div id="loginScreen" class="center-screen">
+  <div class="card">
+    <h2>HomeSchoolingApp — Team Board</h2>
+    <p class="sub">Enter the access code you were given to see what's on everyone's plate.</p>
+    <label for="codeInput">Access code</label>
+    <input type="text" id="codeInput" placeholder="XXXX-XXXX" autocomplete="off" />
+    <div class="btn-row">
+      <button class="btn" id="loginBtn">Enter board</button>
+    </div>
+    <div class="error-msg" id="loginError"></div>
+    <div style="margin-top:22px;border-top:1px solid var(--border);padding-top:14px;">
+      <button class="link-btn" id="showBootstrap">First time setting this up? Create the admin account</button>
+    </div>
+    <div id="bootstrapBox" class="hidden" style="margin-top:12px;">
+      <label for="bootstrapName">Your name</label>
+      <input type="text" id="bootstrapName" placeholder="e.g. Pawel" />
+      <div class="btn-row">
+        <button class="btn secondary" id="bootstrapBtn">Create admin account</button>
+      </div>
+      <div class="error-msg" id="bootstrapError"></div>
+    </div>
+    <div style="margin-top:18px;">
+      <button class="link-btn" id="showSettings">API settings</button>
+    </div>
+    <div id="settingsBox" class="hidden" style="margin-top:12px;">
+      <label for="apiBaseInput">Backend API URL</label>
+      <input type="text" id="apiBaseInput" />
+      <div class="btn-row"><button class="btn secondary" id="saveApiBaseBtn">Save</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== BOARD SCREEN ============== -->
+<div id="boardScreen" class="hidden">
+  <header>
+    <h1>HomeSchoolingApp — Team Board</h1>
+    <div class="who">
+      <span id="whoName"></span>
+      <span class="pill hidden" id="adminPill">admin</span>
+      <button class="icon-btn hidden" id="adminPanelBtn">Manage team</button>
+      <button class="icon-btn" id="logoutBtn">Switch account</button>
+    </div>
+  </header>
+
+  <div class="progress-wrap">
+    <div class="progress-stats">
+      <span><b id="statTotal">0</b> tasks</span>
+      <span><b id="statDone">0</b> done</span>
+      <span><b id="statPct">0%</b> complete</span>
+    </div>
+    <div class="progress-bar-track" id="progressTrack"></div>
+  </div>
+
+  <div class="toolbar">
+    <span style="font-size:12px;color:var(--muted);font-weight:600;">FILTER</span>
+    <button class="chip active" data-cat="all">All</button>
+    <button class="chip" data-cat="content">Content</button>
+    <button class="chip" data-cat="dev">Dev</button>
+    <button class="chip" data-cat="design">Design</button>
+    <button class="chip" data-cat="other">Other</button>
+    <button class="chip" id="myTasksChip">My tasks</button>
+    <div class="spacer"></div>
+    <button class="btn" id="addTaskBtn">+ Add task</button>
+  </div>
+
+  <div class="board" id="board">
+    <!-- columns injected by JS -->
+  </div>
+</div>
+
+<!-- ============== TASK MODAL ============== -->
+<div id="taskOverlay" class="overlay hidden">
+  <div class="modal">
+    <h3 id="taskModalTitle">New task</h3>
+    <label for="f_title">Title</label>
+    <input type="text" id="f_title" maxlength="200" />
+    <label for="f_desc">Description</label>
+    <textarea id="f_desc" maxlength="4000"></textarea>
+    <label for="f_category">Category</label>
+    <select id="f_category">
+      <option value="content">Content</option>
+      <option value="dev">Dev</option>
+      <option value="design">Design</option>
+      <option value="other">Other</option>
+    </select>
+    <label for="f_status">Status</label>
+    <select id="f_status">
+      <option value="backlog">Backlog</option>
+      <option value="todo">To do</option>
+      <option value="in_progress">In progress</option>
+      <option value="review">Review</option>
+      <option value="done">Done</option>
+    </select>
+    <label for="f_assignee">Assignee</label>
+    <input type="text" id="f_assignee" maxlength="120" />
+    <label for="f_sprint">Sprint (optional)</label>
+    <input type="text" id="f_sprint" maxlength="120" placeholder="e.g. Sprint 3 (Oct 6–17)" />
+    <div class="error-msg" id="taskError"></div>
+    <div class="btn-row">
+      <button class="btn danger hidden" id="deleteTaskBtn">Delete</button>
+      <span class="spacer"></span>
+      <button class="btn secondary" id="cancelTaskBtn">Cancel</button>
+      <button class="btn" id="saveTaskBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============== ADMIN MODAL ============== -->
+<div id="adminOverlay" class="overlay hidden">
+  <div class="modal">
+    <h3>Manage team</h3>
+    <label for="newMemberName">Add a team member</label>
+    <input type="text" id="newMemberName" placeholder="Their name" />
+    <div class="btn-row">
+      <span></span>
+      <button class="btn" id="addMemberBtn">Generate access code</button>
+    </div>
+    <div class="error-msg" id="adminError"></div>
+    <div id="newCodeBox" class="hidden" style="margin-top:10px;font-size:13px;">
+      Share this code with them (it won't be shown again): <code class="access-code" id="newCodeText"></code>
+    </div>
+    <table class="members" id="membersTable">
+      <thead><tr><th>Name</th><th>Role</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="btn-row"><span></span><button class="btn secondary" id="closeAdminBtn">Close</button></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var DEFAULT_API_BASE = "https://ca-hs-dev-api.wonderfulgrass-00be683d.centralindia.azurecontainerapps.io/v1/scrum";
+  var LS_CODE = "scrum_access_code";
+  var LS_API = "scrum_api_base";
+
+  var STATUSES = [
+    { key: "backlog", label: "Backlog" },
+    { key: "todo", label: "To do" },
+    { key: "in_progress", label: "In progress" },
+    { key: "review", label: "Review" },
+    { key: "done", label: "Done" }
+  ];
+  var CAT_COLOR = { content: "var(--cat-content)", dev: "var(--cat-dev)", design: "var(--cat-design)", other: "var(--cat-other)" };
+  var CAT_LABEL = { content: "Content", dev: "Dev", design: "Design", other: "Other" };
+
+  var state = {
+    tasks: [],
+    who: null,
+    catFilter: "all",
+    myTasksOnly: false,
+    pollTimer: null,
+    editingTaskId: null
+  };
+
+  function apiBase() { return localStorage.getItem(LS_API) || DEFAULT_API_BASE; }
+  function savedCode() { return localStorage.getItem(LS_CODE) || ""; }
+
+  function showToast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.remove("hidden");
+    setTimeout(function () { t.classList.add("hidden"); }, 3200);
+  }
+
+  function apiFetch(path, options) {
+    options = options || {};
+    var headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});
+    if (savedCode()) headers["X-Scrum-Code"] = savedCode();
+    return fetch(apiBase() + path, Object.assign({}, options, { headers: headers }))
+      .then(function (res) {
+        if (res.status === 204) return null;
+        return res.json().then(function (body) {
+          if (!res.ok) {
+            var err = new Error((body && body.error && body.error.message) || "Request failed");
+            err.code = body && body.error && body.error.code;
+            err.status = res.status;
+            throw err;
+          }
+          return body;
+        });
+      });
+  }
+
+  /* ---------------- login / bootstrap ---------------- */
+  document.getElementById("apiBaseInput").value = apiBase();
+  document.getElementById("showSettings").addEventListener("click", function () {
+    document.getElementById("settingsBox").classList.toggle("hidden");
+  });
+  document.getElementById("saveApiBaseBtn").addEventListener("click", function () {
+    var v = document.getElementById("apiBaseInput").value.trim();
+    if (v) localStorage.setItem(LS_API, v.replace(/\/$/, ""));
+    showToast("API URL saved.");
+  });
+  document.getElementById("showBootstrap").addEventListener("click", function () {
+    document.getElementById("bootstrapBox").classList.toggle("hidden");
+  });
+
+  document.getElementById("bootstrapBtn").addEventListener("click", function () {
+    var name = document.getElementById("bootstrapName").value.trim();
+    var errEl = document.getElementById("bootstrapError");
+    errEl.textContent = "";
+    if (!name) { errEl.textContent = "Enter your name."; return; }
+    apiFetch("/bootstrap", { method: "POST", body: JSON.stringify({ name: name }) })
+      .then(function (body) {
+        localStorage.setItem(LS_CODE, body.access_code);
+        showToast("Admin account created. Save your code somewhere safe: " + body.access_code);
+        enterBoard();
+      })
+      .catch(function (e) { errEl.textContent = e.message; });
+  });
+
+  document.getElementById("loginBtn").addEventListener("click", attemptLogin);
+  document.getElementById("codeInput").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") attemptLogin();
+  });
+
+  function attemptLogin() {
+    var code = document.getElementById("codeInput").value.trim();
+    var errEl = document.getElementById("loginError");
+    errEl.textContent = "";
+    if (!code) { errEl.textContent = "Enter your access code."; return; }
+    localStorage.setItem(LS_CODE, code);
+    apiFetch("/whoami")
+      .then(function () { enterBoard(); })
+      .catch(function (e) {
+        localStorage.removeItem(LS_CODE);
+        errEl.textContent = e.status === 401 ? "That code isn't recognised." : e.message;
+      });
+  }
+
+  document.getElementById("logoutBtn").addEventListener("click", function () {
+    localStorage.removeItem(LS_CODE);
+    stopPolling();
+    document.getElementById("boardScreen").classList.add("hidden");
+    document.getElementById("loginScreen").classList.remove("hidden");
+    document.getElementById("codeInput").value = "";
+  });
+
+  function enterBoard() {
+    apiFetch("/whoami").then(function (who) {
+      state.who = who;
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("boardScreen").classList.remove("hidden");
+      document.getElementById("whoName").textContent = "Hi, " + who.name;
+      document.getElementById("adminPill").classList.toggle("hidden", !who.is_admin);
+      document.getElementById("adminPanelBtn").classList.toggle("hidden", !who.is_admin);
+      buildBoardColumns();
+      loadTasks();
+      startPolling();
+    }).catch(function (e) { showToast(e.message); });
+  }
+
+  function startPolling() {
+    stopPolling();
+    state.pollTimer = setInterval(loadTasks, 8000);
+  }
+  function stopPolling() {
+    if (state.pollTimer) clearInterval(state.pollTimer);
+    state.pollTimer = null;
+  }
+
+  /* ---------------- board rendering ---------------- */
+  function buildBoardColumns() {
+    var board = document.getElementById("board");
+    board.innerHTML = "";
+    STATUSES.forEach(function (s) {
+      var col = document.createElement("div");
+      col.className = "column";
+      col.dataset.status = s.key;
+      col.innerHTML =
+        '<div class="column-head"><span>' + s.label + '</span><span class="count" data-count="' + s.key + '">0</span></div>' +
+        '<div class="column-body" data-body="' + s.key + '"></div>';
+      col.addEventListener("dragover", function (e) { e.preventDefault(); col.classList.add("drag-over"); });
+      col.addEventListener("dragleave", function () { col.classList.remove("drag-over"); });
+      col.addEventListener("drop", function (e) {
+        e.preventDefault();
+        col.classList.remove("drag-over");
+        var taskId = e.dataTransfer.getData("text/plain");
+        moveTaskStatus(taskId, s.key);
+      });
+      board.appendChild(col);
+    });
+  }
+
+  function loadTasks() {
+    apiFetch("/tasks").then(function (tasks) {
+      state.tasks = tasks;
+      renderBoard();
+    }).catch(function (e) {
+      if (e.status === 401) {
+        localStorage.removeItem(LS_CODE);
+        stopPolling();
+        document.getElementById("boardScreen").classList.add("hidden");
+        document.getElementById("loginScreen").classList.remove("hidden");
+        document.getElementById("loginError").textContent = "Your session code is no longer valid.";
+      } else {
+        showToast(e.message);
+      }
+    });
+  }
+
+  function visibleTasks() {
+    return state.tasks.filter(function (t) {
+      if (state.catFilter !== "all" && t.category !== state.catFilter) return false;
+      if (state.myTasksOnly && state.who && (t.assignee_name || "").trim().toLowerCase() !== state.who.name.trim().toLowerCase()) return false;
+      return true;
+    });
+  }
+
+  function renderBoard() {
+    var tasks = visibleTasks();
+    STATUSES.forEach(function (s) {
+      var body = document.querySelector('[data-body="' + s.key + '"]');
+      var count = document.querySelector('[data-count="' + s.key + '"]');
+      var colTasks = tasks.filter(function (t) { return t.status === s.key; });
+      count.textContent = colTasks.length;
+      body.innerHTML = "";
+      if (colTasks.length === 0) {
+        var empty = document.createElement("div");
+        empty.className = "empty-col";
+        empty.textContent = "Nothing here";
+        body.appendChild(empty);
+        return;
+      }
+      colTasks.forEach(function (t) {
+        var card = document.createElement("div");
+        card.className = "task-card";
+        card.draggable = true;
+        card.dataset.id = t.id;
+        card.innerHTML =
+          '<div class="task-title"></div>' +
+          '<div class="task-meta">' +
+          '<span class="cat-badge" style="background:' + CAT_COLOR[t.category] + '"></span>' +
+          (t.assignee_name ? '<span class="assignee-badge"></span>' : "") +
+          (t.sprint ? '<span class="sprint-badge"></span>' : "") +
+          "</div>";
+        card.querySelector(".task-title").textContent = t.title;
+        card.querySelector(".cat-badge").textContent = CAT_LABEL[t.category];
+        if (t.assignee_name) card.querySelector(".assignee-badge").textContent = "👤 " + t.assignee_name;
+        if (t.sprint) card.querySelector(".sprint-badge").textContent = t.sprint;
+        card.addEventListener("dragstart", function (e) {
+          e.dataTransfer.setData("text/plain", t.id);
+          card.classList.add("dragging");
+        });
+        card.addEventListener("dragend", function () { card.classList.remove("dragging"); });
+        card.addEventListener("click", function () { openTaskModal(t); });
+        body.appendChild(card);
+      });
+    });
+    renderProgress(tasks);
+  }
+
+  function renderProgress(tasks) {
+    var total = tasks.length;
+    var done = tasks.filter(function (t) { return t.status === "done"; }).length;
+    document.getElementById("statTotal").textContent = total;
+    document.getElementById("statDone").textContent = done;
+    var pct = total ? Math.round((done / total) * 100) : 0;
+    document.getElementById("statPct").textContent = pct + "%";
+    var track = document.getElementById("progressTrack");
+    track.innerHTML = "";
+    if (total === 0) return;
+    STATUSES.forEach(function (s, i) {
+      var n = tasks.filter(function (t) { return t.status === s.key; }).length;
+      if (!n) return;
+      var seg = document.createElement("div");
+      seg.className = "progress-bar-seg";
+      seg.style.width = (n / total * 100) + "%";
+      var shades = ["#c9ccd1", "#9aa3b2", "#3b5bdb", "#8a5fd6", "#0f9d8c"];
+      seg.style.background = shades[i];
+      track.appendChild(seg);
+    });
+  }
+
+  function moveTaskStatus(taskId, newStatus) {
+    var task = state.tasks.find(function (t) { return t.id === taskId; });
+    if (!task || task.status === newStatus) return;
+    task.status = newStatus; // optimistic
+    renderBoard();
+    apiFetch("/tasks/" + taskId, { method: "PATCH", body: JSON.stringify({ status: newStatus }) })
+      .then(loadTasks)
+      .catch(function (e) { showToast(e.message); loadTasks(); });
+  }
+
+  /* ---------------- filters ---------------- */
+  document.querySelectorAll(".chip[data-cat]").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      document.querySelectorAll(".chip[data-cat]").forEach(function (c) { c.classList.remove("active"); });
+      chip.classList.add("active");
+      state.catFilter = chip.dataset.cat;
+      renderBoard();
+    });
+  });
+  document.getElementById("myTasksChip").addEventListener("click", function (e) {
+    state.myTasksOnly = !state.myTasksOnly;
+    e.target.classList.toggle("active", state.myTasksOnly);
+    renderBoard();
+  });
+
+  /* ---------------- task modal ---------------- */
+  var taskOverlay = document.getElementById("taskOverlay");
+  document.getElementById("addTaskBtn").addEventListener("click", function () { openTaskModal(null); });
+  document.getElementById("cancelTaskBtn").addEventListener("click", closeTaskModal);
+  taskOverlay.addEventListener("click", function (e) { if (e.target === taskOverlay) closeTaskModal(); });
+
+  function openTaskModal(task) {
+    state.editingTaskId = task ? task.id : null;
+    document.getElementById("taskModalTitle").textContent = task ? "Edit task" : "New task";
+    document.getElementById("f_title").value = task ? task.title : "";
+    document.getElementById("f_desc").value = task ? (task.description || "") : "";
+    document.getElementById("f_category").value = task ? task.category : "dev";
+    document.getElementById("f_status").value = task ? task.status : "backlog";
+    document.getElementById("f_assignee").value = task ? (task.assignee_name || "") : (state.who ? state.who.name : "");
+    document.getElementById("f_sprint").value = task ? (task.sprint || "") : "";
+    document.getElementById("taskError").textContent = "";
+    document.getElementById("deleteTaskBtn").classList.toggle("hidden", !task);
+    taskOverlay.classList.remove("hidden");
+  }
+  function closeTaskModal() { taskOverlay.classList.add("hidden"); }
+
+  document.getElementById("saveTaskBtn").addEventListener("click", function () {
+    var body = {
+      title: document.getElementById("f_title").value.trim(),
+      description: document.getElementById("f_desc").value.trim() || null,
+      category: document.getElementById("f_category").value,
+      status: document.getElementById("f_status").value,
+      assignee_name: document.getElementById("f_assignee").value.trim() || null,
+      sprint: document.getElementById("f_sprint").value.trim() || null
+    };
+    var errEl = document.getElementById("taskError");
+    if (!body.title) { errEl.textContent = "Title is required."; return; }
+    var req = state.editingTaskId
+      ? apiFetch("/tasks/" + state.editingTaskId, { method: "PATCH", body: JSON.stringify(body) })
+      : apiFetch("/tasks", { method: "POST", body: JSON.stringify(body) });
+    req.then(function () { closeTaskModal(); loadTasks(); }).catch(function (e) { errEl.textContent = e.message; });
+  });
+
+  document.getElementById("deleteTaskBtn").addEventListener("click", function () {
+    if (!state.editingTaskId) return;
+    apiFetch("/tasks/" + state.editingTaskId, { method: "DELETE" })
+      .then(function () { closeTaskModal(); loadTasks(); })
+      .catch(function (e) { document.getElementById("taskError").textContent = e.message; });
+  });
+
+  /* ---------------- admin panel ---------------- */
+  var adminOverlay = document.getElementById("adminOverlay");
+  document.getElementById("adminPanelBtn").addEventListener("click", function () {
+    document.getElementById("newCodeBox").classList.add("hidden");
+    document.getElementById("adminError").textContent = "";
+    document.getElementById("newMemberName").value = "";
+    loadMembers();
+    adminOverlay.classList.remove("hidden");
+  });
+  document.getElementById("closeAdminBtn").addEventListener("click", function () { adminOverlay.classList.add("hidden"); });
+  adminOverlay.addEventListener("click", function (e) { if (e.target === adminOverlay) adminOverlay.classList.add("hidden"); });
+
+  function loadMembers() {
+    apiFetch("/members").then(function (members) {
+      var tbody = document.querySelector("#membersTable tbody");
+      tbody.innerHTML = "";
+      members.forEach(function (m) {
+        var tr = document.createElement("tr");
+        var canRemove = state.who && m.id !== state.who.id;
+        tr.innerHTML =
+          "<td></td><td></td>" +
+          '<td>' + (canRemove ? '<button class="link-btn" data-remove="' + m.id + '">remove</button>' : "") + "</td>";
+        tr.children[0].textContent = m.name;
+        tr.children[1].textContent = m.is_admin ? "Admin" : "Member";
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll("[data-remove]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          apiFetch("/members/" + btn.dataset.remove, { method: "DELETE" }).then(loadMembers).catch(function (e) { showToast(e.message); });
+        });
+      });
+    }).catch(function (e) { showToast(e.message); });
+  }
+
+  document.getElementById("addMemberBtn").addEventListener("click", function () {
+    var name = document.getElementById("newMemberName").value.trim();
+    var errEl = document.getElementById("adminError");
+    errEl.textContent = "";
+    if (!name) { errEl.textContent = "Enter a name."; return; }
+    apiFetch("/members", { method: "POST", body: JSON.stringify({ name: name, is_admin: false }) })
+      .then(function (res) {
+        document.getElementById("newCodeBox").classList.remove("hidden");
+        document.getElementById("newCodeText").textContent = res.access_code;
+        document.getElementById("newMemberName").value = "";
+        loadMembers();
+      })
+      .catch(function (e) { errEl.textContent = e.message; });
+  });
+
+  /* ---------------- boot ---------------- */
+  if (savedCode()) {
+    apiFetch("/whoami").then(function () { enterBoard(); }).catch(function () { localStorage.removeItem(LS_CODE); });
+  }
+})();
+</script>
+</body>
+</html>

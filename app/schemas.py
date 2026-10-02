@@ -409,3 +409,70 @@ class HistoryItem(BaseModel):
     score: float | None
     parent_assist: bool
     needs_review: list[str]
+
+
+# ---------------------------------------------------------------------------- scrum board
+ScrumCategory = Literal["content", "dev", "design", "other"]
+ScrumStatus = Literal["backlog", "todo", "in_progress", "review", "done"]
+
+
+class ScrumBootstrapIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class ScrumMemberIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    is_admin: bool = False
+
+
+class ScrumMemberOut(Out):
+    id: uuid.UUID
+    name: str
+    is_admin: bool
+    created_at: datetime
+
+
+class ScrumMemberCreatedOut(BaseModel):
+    """Returned once, at creation time only — the access code is never retrievable again."""
+
+    member: ScrumMemberOut
+    access_code: str
+
+
+class ScrumWhoamiOut(Out):
+    id: uuid.UUID
+    name: str
+    is_admin: bool
+
+
+class ScrumTaskIn(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=4000)
+    category: ScrumCategory = "dev"
+    status: ScrumStatus = "backlog"
+    assignee_name: str | None = Field(default=None, max_length=120)
+    sprint: str | None = Field(default=None, max_length=120)
+
+
+class ScrumTaskPatch(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=4000)
+    category: ScrumCategory | None = None
+    status: ScrumStatus | None = None
+    assignee_name: str | None = Field(default=None, max_length=120)
+    sprint: str | None = Field(default=None, max_length=120)
+    position: int | None = None
+
+
+class ScrumTaskOut(Out):
+    id: uuid.UUID
+    title: str
+    description: str | None
+    category: ScrumCategory
+    status: ScrumStatus
+    assignee_name: str | None
+    sprint: str | None
+    position: int
+    created_by_member_id: uuid.UUID | None
+    created_at: datetime
+    updated_at: datetime

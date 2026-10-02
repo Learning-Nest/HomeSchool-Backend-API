@@ -7,7 +7,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -15,7 +15,7 @@ from app.config import get_settings
 from app.db import dispose_engine
 from app.errors import install_error_handlers
 from app.logging_setup import setup_logging
-from app.routers import admin, auth, children, curriculum, families, health, me, planned, plans, progress, sessions
+from app.routers import admin, auth, children, curriculum, families, health, me, planned, plans, progress, scrum, sessions
 
 log = logging.getLogger("app.access")
 API_VERSION = "0.1.0"
@@ -84,6 +84,26 @@ def create_app() -> FastAPI:
         )
         return response
 
-    for module in (health, auth, me, families, children, curriculum, plans, sessions, progress, admin, planned):
+    # The Scrum board is a separate internal tool with its own per-person access code (app/routers/scrum.py),
+    # meant to be called from a static page hosted wherever the team puts it -- an origin the main CORS allowlist
+    # above doesn't know about. Open CORS for just that prefix rather than loosening the app-wide policy.
+    @app.middleware("http")
+    async def scrum_cors(request: Request, call_next):
+        if not request.url.path.startswith("/v1/scrum"):
+            return await call_next(request)
+        if request.method == "OPTIONS":
+            response = Response(status_code=204)
+        else:
+            response = await call_next(request)
+        origin = request.headers.get("Origin")
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Scrum-Code"
+        response.headers["Access-Control-Max-Age"] = "600"
+        return response
+
+    for module in (health, auth, me, families, children, curriculum, plans, sessions, progress, admin, planned, scrum):
         app.include_router(module.router)
     return app
