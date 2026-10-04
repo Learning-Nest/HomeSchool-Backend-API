@@ -12,7 +12,7 @@ from app import ratelimit
 from app.config import get_settings
 from app.deps import WRITE_ROLES, DbSession, ParentActor, membership
 from app.errors import ApiError
-from app.models import Consent, Family, FamilyMembership, GuardianVerification
+from app.models import Consent, Family, FamilyMembership, GuardianVerification, User
 from app.schemas import (
     ConsentIn,
     ConsentOut,
@@ -23,6 +23,7 @@ from app.schemas import (
     GuardianStartOut,
 )
 from app.security import now
+from app.services import email as email_service
 from app.services import otp
 from app.services.events import audit, emit
 
@@ -48,16 +49,23 @@ def start_verification(
     ratelimit.check(f"otp:{actor.user_id}", 5, 3600)
     s = get_settings()
     code = otp.new_code()
+    by_email = body.channel == "email"
+    # The email channel always goes to the signed-in account's own address - never to one supplied in the request.
+    account_email = db.get(User, actor.user_id).email if by_email else None
     v = GuardianVerification(
         user_id=actor.user_id,
         family_id=family_id,
-        phone_last4=body.phone[-4:],
+        method="email_declaration" if by_email else "otp_declaration",
+        phone_last4=None if by_email else body.phone[-4:],
         otp_expires_at=now() + timedelta(minutes=s.otp_ttl_minutes),
     )
     db.add(v)
     db.flush()
     v.otp_hash = otp.digest(v.id, code)
-    otp.deliver(body.phone, code)
+    if by_email:
+        otp.deliver_email(account_email, code)
+    else:
+        otp.deliver(body.phone, code)
     audit(
         db,
         "guardian.otp_sent",
@@ -66,9 +74,14 @@ def start_verification(
         entity="guardian_verification",
         entity_id=v.id,
         request_id=actor.request_id,
+        channel=body.channel,
     )
     return GuardianStartOut(
-        verification_id=v.id, expires_in=s.otp_ttl_minutes * 60, dev_code=code if s.expose_dev_otp else None
+        verification_id=v.id,
+        expires_in=s.otp_ttl_minutes * 60,
+        dev_code=code if s.expose_dev_otp else None,
+        channel=body.channel,
+        destination_hint=email_service.mask_email(account_email) if by_email else "******" + body.phone[-4:],
     )
 
 

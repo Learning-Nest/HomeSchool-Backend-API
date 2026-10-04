@@ -22,6 +22,10 @@ from app.security import decode_token, now
 DbSession = Annotated[Session, Depends(get_db, scope="function")]
 _bearer = HTTPBearer(auto_error=False)
 
+# After signing in with an emailed temporary password the account can do exactly two things: read /v1/me (so the app
+# can tell what is going on) and set a new password. Everything else answers 403 password_change_required.
+_PASSWORD_CHANGE_EXEMPT = {("GET", "/v1/me"), ("POST", "/v1/auth/change-password")}
+
 WRITE_ROLES = {"owner", "guardian"}
 ALL_ROLES = {"owner", "guardian", "educator"}
 
@@ -58,6 +62,8 @@ def get_actor(
         if user is None or user.status != "active":
             raise unauthenticated()
         set_rls_identity(db, user_id=user.id)
+        if user.must_change_password and (request.method, request.url.path) not in _PASSWORD_CHANGE_EXEMPT:
+            raise ApiError(403, "password_change_required")
         return Actor(kind="parent", user_id=user.id, platform_role=user.platform_role, request_id=request_id)
     if typ == "child":
         try:

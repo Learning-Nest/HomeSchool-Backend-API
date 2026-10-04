@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import timedelta
 
@@ -12,6 +13,13 @@ from app.config import get_settings
 from app.models import Family, FamilyMembership, GuardianVerification, RefreshToken, User
 from app.schemas import MembershipOut, TokenOut, UserOut
 from app.security import create_access_token, new_opaque_token, now
+
+_TEMP_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"  # no 0/O/1/l/I lookalikes
+
+
+def new_temp_password(length: int = 12) -> str:
+    """A random, easy-to-read-and-type temporary password (about 70 bits)."""
+    return "".join(secrets.choice(_TEMP_ALPHABET) for _ in range(length))
 
 
 def memberships_for(db: Session, user_id: uuid.UUID) -> list[MembershipOut]:
@@ -54,5 +62,6 @@ def issue_tokens(db: Session, user: User, chain_id: uuid.UUID | None = None) -> 
         expires_in=s.access_token_minutes * 60,
         user=UserOut.model_validate(user),
         memberships=memberships_for(db, user.id),
+        temp_login=user.must_change_password,
     )
     return out, row

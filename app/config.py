@@ -56,11 +56,24 @@ class Settings(BaseSettings):
     elevation_minutes: int = 5
 
     # Guardian verification (OTP + declaration is the MVP method, see 23_COMPLIANCE_DPDP)
-    otp_provider: Literal["console", "webhook", "disabled"] = (
+    otp_provider: Literal["console", "webhook", "msg91", "disabled"] = (
         "console"  # console = writes the code to the log (dev/test/nonprod only)
     )
     otp_webhook_url: str | None = None  # webhook = POST {"to", "message"} to your SMS gateway
     otp_webhook_token: SecretStr = SecretStr("")
+    msg91_auth_key: SecretStr = SecretStr("")  # msg91 = deliver via MSG91's v5 Send OTP API (docs.msg91.com/otp)
+    msg91_template_id: str | None = None  # a pre-approved MSG91 template containing the ##OTP## variable
+    # Transactional email: guardian verification codes ("email me a code") and forgot-password temporary passwords.
+    # console = writes the message to the application log (dev/test/nonprod only, refused in prod by config).
+    email_provider: Literal["console", "smtp", "disabled"] = "console"
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"  # 587 -> starttls, 465 -> ssl
+    smtp_username: str | None = None
+    smtp_password: SecretStr = SecretStr("")  # secret: Key Vault / real env var, never an env file
+    email_from: str | None = None  # e.g. "LearnNest <verification@yourdomain.org>"
+    email_brand: str = "LearnNest"  # the app name used in email subjects and bodies
+    temp_password_minutes: int = 60  # how long a forgot-password temporary password stays valid
     otp_ttl_minutes: int = 10
     otp_max_attempts: int = 5
     expose_dev_otp: bool = False  # returns the code in the API response: local development only
@@ -112,12 +125,27 @@ class Settings(BaseSettings):
                 raise ValueError("DB_PASSWORD (or DATABASE_URL) must be set in nonprod/prod")
             if self.db_sslmode in ("disable", "allow", "prefer"):
                 raise ValueError("DB_SSLMODE must be require or stronger in nonprod/prod")
-            if self.app_env == "prod" and self.otp_provider != "webhook":
-                raise ValueError("OTP_PROVIDER must be webhook in prod (the console provider writes codes to the log)")
+            if self.app_env == "prod" and self.otp_provider not in ("webhook", "msg91"):
+                raise ValueError(
+                    "OTP_PROVIDER must be webhook or msg91 in prod (the console provider writes codes to the log)"
+                )
             if self.app_env == "prod" and self.otp_static_test_code:
                 raise ValueError("OTP_STATIC_TEST_CODE must never be set in prod")
             if self.otp_provider == "webhook" and not (self.otp_webhook_url or "").startswith("https://"):
                 raise ValueError("OTP_WEBHOOK_URL must be an https URL when OTP_PROVIDER=webhook")
+            if self.otp_provider == "msg91" and not (self.msg91_auth_key.get_secret_value() and self.msg91_template_id):
+                raise ValueError("MSG91_AUTH_KEY and MSG91_TEMPLATE_ID must both be set when OTP_PROVIDER=msg91")
+        if self.app_env == "prod" and self.email_provider != "smtp":
+            raise ValueError("EMAIL_PROVIDER must be smtp in prod (the console provider writes messages to the log)")
+        return self
+
+    @model_validator(mode="after")
+    def _check_email_settings(self) -> Settings:
+        if self.email_provider == "smtp":
+            if not (self.smtp_host and self.email_from):
+                raise ValueError("SMTP_HOST and EMAIL_FROM must both be set when EMAIL_PROVIDER=smtp")
+            if self.smtp_username and not self.smtp_password.get_secret_value():
+                raise ValueError("SMTP_PASSWORD must be set when SMTP_USERNAME is set")
         return self
 
 

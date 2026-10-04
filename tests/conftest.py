@@ -21,6 +21,7 @@ TEST_ENV = {
     "JWT_SECRET": "test-only-jwt-secret-0123456789-abcdefghijklmnop",
     "EXPOSE_DEV_OTP": "true",
     "OTP_PROVIDER": "console",
+    "EMAIL_PROVIDER": "console",  # a developer's .env.local must never make the test suite send real email
     "LOG_LEVEL": "WARNING",
     "LOG_JSON": "false",
 }

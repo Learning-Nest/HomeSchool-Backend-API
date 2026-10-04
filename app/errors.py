@@ -21,6 +21,7 @@ ERROR_CODES: dict[str, str] = {
     "pin_locked": "The PIN is temporarily locked after too many attempts.",
     "pin_invalid": "The PIN is incorrect.",
     "otp_invalid": "The verification code is incorrect or expired.",
+    "password_change_required": "You signed in with a temporary password. Set a new password to continue.",
     "email_taken": "An account with this email already exists.",
     "invalid_credentials": "Email or password is incorrect.",
     "content_invalid": "The content failed validation.",

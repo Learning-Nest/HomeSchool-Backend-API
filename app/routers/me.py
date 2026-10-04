@@ -62,6 +62,7 @@ def me(actor: ParentActor, db: DbSession) -> MeOut:
         user=UserOut.model_validate(user),
         memberships=memberships_for(db, user.id),
         pin_set=db.get(ParentPin, user.id) is not None,
+        temp_login=user.must_change_password,
     )
 
 

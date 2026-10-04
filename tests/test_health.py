@@ -37,6 +37,9 @@ def _prod(**kw):
         cors_origins="https://admin.example.com",
         otp_provider="webhook",
         otp_webhook_url="https://sms.example.com/send",
+        email_provider="smtp",
+        smtp_host="smtp.example.com",
+        email_from="HomeSchool <no-reply@example.com>",
         expose_dev_otp=False,
         database_url=None,
     )
@@ -57,6 +60,9 @@ def test_prod_settings_accept_a_good_configuration():
         {"db_password": ""},
         {"db_sslmode": "disable"},
         {"otp_provider": "console"},
+        {"email_provider": "console"},
+        {"smtp_host": None},
+        {"smtp_username": "user", "smtp_password": ""},
         {"otp_webhook_url": "http://insecure.example.com"},
     ],
 )

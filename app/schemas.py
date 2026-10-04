@@ -6,7 +6,7 @@ import uuid
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 Role = Literal["owner", "guardian", "educator"]
 Rating = Literal["trying", "with_help", "independent"]
@@ -28,6 +28,19 @@ class SignupIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=128)
+
+
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordOut(BaseModel):
+    status: Literal["ok"] = "ok"
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)  # the old password, or the emailed temporary one
+    new_password: str = Field(min_length=10, max_length=128)
 
 
 class RefreshIn(BaseModel):
@@ -55,12 +68,14 @@ class TokenOut(BaseModel):
     expires_in: int
     user: UserOut
     memberships: list[MembershipOut]
+    temp_login: bool = False  # signed in with an emailed temporary password: only a password change is allowed
 
 
 class MeOut(BaseModel):
     user: UserOut
     memberships: list[MembershipOut]
     pin_set: bool
+    temp_login: bool = False
 
 
 class PinSetIn(BaseModel):
@@ -91,13 +106,22 @@ class FamilyOut(Out):
 
 
 class GuardianStartIn(BaseModel):
-    phone: str = Field(pattern=r"^\+?[0-9]{8,15}$")
+    channel: Literal["sms", "email"] = "sms"  # email = send the code to the signed-in account's own email address
+    phone: str | None = Field(default=None, pattern=r"^\+?[0-9]{8,15}$")
+
+    @model_validator(mode="after")
+    def _phone_required_for_sms(self) -> GuardianStartIn:
+        if self.channel == "sms" and not self.phone:
+            raise ValueError("phone is required when channel is sms")
+        return self
 
 
 class GuardianStartOut(BaseModel):
     verification_id: uuid.UUID
     expires_in: int
     dev_code: str | None = None
+    channel: Literal["sms", "email"] = "sms"
+    destination_hint: str | None = None  # masked, e.g. "p***@gmail.com" or "******5678"
 
 
 class GuardianConfirmIn(BaseModel):

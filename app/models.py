@@ -42,6 +42,11 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(Text, nullable=False)
     platform_role: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, default="active", server_default="active")
+    # Forgot-password: a separate, expiring temporary password. The real password keeps working until the user
+    # changes it, so a stranger who merely types your email address cannot lock you out.
+    reset_hash: Mapped[str | None] = mapped_column(Text)
+    reset_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = _now()
 
