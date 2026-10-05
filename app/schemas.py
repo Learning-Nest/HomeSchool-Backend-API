@@ -222,6 +222,15 @@ class ActivitySummary(Out):
     version: int
 
 
+class LibraryActivity(ActivitySummary):
+    """An activity as the parent's Activity library shows it for one child: the catalogue fields plus what that
+    child has already done with it."""
+
+    times_done: int  # finished sessions (0 = never done)
+    last_done_at: datetime | None
+    planned_for: date | None  # the next day it is planned for this child, if any
+
+
 class ActivityDetail(ActivitySummary):
     skills: list[str]
     definition: dict[str, Any]
