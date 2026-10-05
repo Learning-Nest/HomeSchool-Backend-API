@@ -67,12 +67,13 @@ def test_editing_a_published_activity_validates_and_versions(make_admin):
     same = admin.put(url, json={"definition": d})
     assert same.status_code == 200 and same.json()["version"] == 1  # no change, no new version
     bad = copy.deepcopy(d)
-    bad["steps"][1]["correct"] = ["nope"]
+    bad["steps"][1]["key"]["correct"] = ["nope"]
     r = admin.put(url, json={"definition": bad})
     assert r.status_code == 422 and r.json()["error"]["code"] == "content_invalid" and r.json()["error"]["problems"]
     renamed = {**d, "slug": "other-slug"}
     assert admin.put(url, json={"definition": renamed}).status_code == 422
-    unknown_skill = {**d, "skills": ["MAT.NOPE.NOPE"]}
+    unknown_skill = copy.deepcopy(d)
+    unknown_skill["steps"][1]["skills"] = [{"code": "MAT.NOPE.NOPE"}]  # skills are set per exercise
     assert admin.put(url, json={"definition": unknown_skill}).status_code == 422
     good = {**d, "title": "Count the dogs (v2)"}
     r = admin.put(url, json={"definition": good})
@@ -97,7 +98,8 @@ def test_import_dry_run_writes_nothing_then_apply_then_idempotent(make_admin, pa
 def test_import_rejects_invalid_bundles_atomically(make_admin):
     admin = make_admin()
     good = _new_activity("ok-one")
-    bad = _new_activity("bad-one", skills=["MAT.NOPE.NOPE"])
+    bad = _new_activity("bad-one")
+    bad["steps"][1]["skills"] = [{"code": "MAT.NOPE.NOPE"}]
     r = admin.post("/v1/admin/content/bundle", json={**_bundle([good, bad]), "dry_run": False}).json()
     assert r["ok"] is False and any("MAT.NOPE.NOPE" in p for p in r["problems"])
     assert admin.get("/v1/admin/activities", params={"q": "tally"}).json() == []  # the good one was not written either

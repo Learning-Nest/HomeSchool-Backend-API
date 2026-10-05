@@ -18,7 +18,14 @@ from app.schemas import ActivitySummary, AutosaveIn, ReviewIn, SessionOut, Sessi
 from app.security import now
 from app.services import catalog
 from app.services import mastery as m
-from app.services.content import is_scored, public_definition, score_step, step_skills
+from app.services.content import (
+    is_scored,
+    needs_parent_review,
+    normalize,
+    public_definition,
+    score_step,
+    step_skill_weights,
+)
 from app.services.events import audit, emit
 from app.services.progress import add_evidence, recompute_mastery
 
@@ -64,7 +71,7 @@ def _load(db, actor: Actor, session_id: uuid.UUID) -> tuple[ActivitySession, Chi
 
 
 def _check_answers(defn: dict[str, Any], answers: dict[str, Any]) -> None:
-    ids = {st["id"] for st in defn["steps"]}
+    ids = {st["id"] for st in defn["steps"] if st.get("enabled", True)}
     unknown = sorted(set(answers) - ids)
     if unknown:
         raise ApiError(422, "validation_error", f"Unknown step ids: {', '.join(unknown)}.")
@@ -145,7 +152,7 @@ def submit(session_id: uuid.UUID, body: SubmitIn, actor: CurrentActor, db: DbSes
     s, child = _load(db, actor, session_id)
     if s.status == "submitted":  # idempotent: a retried submit returns the stored result
         return _out(db, s)
-    defn = _definition(db, s)
+    defn = normalize(_definition(db, s))
     _check_answers(defn, body.answers)
     answers = {**s.answers, **body.answers}
     hints = max(s.hints_used, body.hints_used)
@@ -162,15 +169,16 @@ def submit(session_id: uuid.UUID, body: SubmitIn, actor: CurrentActor, db: DbSes
 
     independence = m.independence_for_session(hints, assist)
     affected: set[str] = set()
-    step_results: dict[str, dict[str, float]] = {}
+    step_results: dict[str, dict[str, Any]] = {}
     for step in defn["steps"]:
-        if step["type"] == "parent_checklist" or not is_scored(step):
+        if not is_scored(step):
             continue
         sc = score_step(step, answers.get(step["id"]))
         if sc is None:
             continue
-        step_results[step["id"]] = {"score": round(sc, 4)}
-        for code in step_skills(step, defn["skills"]):
+        weights = step_skill_weights(step, defn["skills"])
+        step_results[step["id"]] = {"score": round(sc, 4), "skills": [code for code, _ in weights]}
+        for code, factor in weights:
             add_evidence(
                 db,
                 family_id=child.family_id,
@@ -182,10 +190,11 @@ def submit(session_id: uuid.UUID, body: SubmitIn, actor: CurrentActor, db: DbSes
                 occurred_at=occurred,
                 session_id=s.id,
                 step_id=step["id"],
+                weight_factor=factor,
             )
             affected.add(code)
     scores = [r["score"] for r in step_results.values()]
-    needs_review = [st["id"] for st in defn["steps"] if st["type"] == "parent_checklist"]
+    needs_review = [st["id"] for st in defn["steps"] if needs_parent_review(st)]
     s.answers, s.hints_used, s.parent_assist = answers, hints, assist
     s.status, s.submitted_at, s.duration_sec = "submitted", occurred, body.duration_sec
     s.result = {
@@ -227,36 +236,40 @@ def review(session_id: uuid.UUID, body: ReviewIn, actor: ParentActor, db: DbSess
     s, child = _load(db, actor, session_id)
     if s.status != "submitted":
         raise conflict("Submit the session before reviewing it.")
-    defn = _definition(db, s)
-    checklist = {st["id"]: st for st in defn["steps"] if st["type"] == "parent_checklist"}
+    defn = normalize(_definition(db, s))
+    checklist = {st["id"]: st for st in defn["steps"] if needs_parent_review(st)}
     bad = sorted(set(body.ratings) - set(checklist))
     if bad:
         raise ApiError(422, "validation_error", f"Not parent checklist steps: {', '.join(bad)}.")
     affected: set[str] = set()
     for sid, rating in body.ratings.items():
-        code = checklist[sid]["skill_code"]
-        add_evidence(
-            db,
-            family_id=child.family_id,
-            child_id=child.id,
-            skill_code=code,
-            source="activity",
-            value=m.RATING_VALUES[rating],
-            independence="independent",
-            occurred_at=s.submitted_at,
-            session_id=s.id,
-            step_id=sid,
-        )
-        affected.add(code)
+        for code, factor in step_skill_weights(checklist[sid], defn["skills"]):
+            add_evidence(
+                db,
+                family_id=child.family_id,
+                child_id=child.id,
+                skill_code=code,
+                source="activity",
+                value=m.RATING_VALUES[rating],
+                independence="independent",
+                occurred_at=s.submitted_at,
+                session_id=s.id,
+                step_id=sid,
+                weight_factor=factor,
+            )
+            affected.add(code)
     if body.parent_assist is not None and body.parent_assist != s.parent_assist:
         s.parent_assist = body.parent_assist
         independence = m.independence_for_session(s.hints_used, s.parent_assist)
+        by_id = {st["id"]: st for st in defn["steps"]}
         for ev in db.scalars(
             select(SkillEvidence).where(
                 SkillEvidence.session_id == s.id, SkillEvidence.step_id.not_in(list(checklist) or [""])
             )
         ):
-            ev.independence, ev.weight = independence, m.evidence_weight(ev.source, independence)
+            weights = dict(step_skill_weights(by_id[ev.step_id], defn["skills"])) if ev.step_id in by_id else {}
+            factor = weights.get(ev.skill_code, 1.0)
+            ev.independence, ev.weight = independence, m.evidence_weight(ev.source, independence) * factor
             affected.add(ev.skill_code)
     result = dict(s.result or {})
     reviewed = {**result.get("reviewed", {}), **body.ratings}

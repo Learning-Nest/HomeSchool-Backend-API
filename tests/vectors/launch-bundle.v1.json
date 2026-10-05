@@ -1,5 +1,5 @@
 {
- "version": "2026.10.1",
+ "version": "2026.09.1",
  "levels": [
   {
    "code": "L1",
@@ -707,7 +707,6 @@
  ],
  "activities": [
   {
-   "schema_version": 2,
    "slug": "build-a-paper-rocket",
    "title": "Build a paper rocket",
    "subject": "ART",
@@ -718,83 +717,54 @@
     "paper",
     "tape"
    ],
+   "skills": [
+    "ART.CRAFT.BUILD",
+    "LIF.INSTR.FOLLOW2"
+   ],
    "interests": [
     "space",
     "building"
    ],
    "summary": "Follow a plan to fold and tape a rocket.",
-   "recurring": false,
-   "skills": [
-    "ART.CRAFT.BUILD",
-    "LIF.INSTR.FOLLOW2"
-   ],
    "steps": [
     {
      "id": "s1",
      "type": "instruction",
-     "prompt": "Roll the paper into a tube and tape it. Then fold a paper cone for the top and tape it on.",
-     "scoring": {
-      "mode": "none"
-     }
+     "text": "Roll the paper into a tube and tape it. Then fold a paper cone for the top and tape it on."
     },
     {
      "id": "s2",
      "type": "parent_checklist",
+     "skill_code": "ART.CRAFT.BUILD",
      "prompt": "Did your child build the rocket by following the plan?",
-     "config": {
-      "rating_options": [
-       "trying",
-       "with_help",
-       "independent"
-      ]
-     },
-     "scoring": {
-      "mode": "parent_rubric"
-     },
-     "skills": [
-      {
-       "code": "ART.CRAFT.BUILD",
-       "weight": 1
-      }
+     "rating_options": [
+      "trying",
+      "with_help",
+      "independent"
      ]
     },
     {
      "id": "s3",
      "type": "parent_checklist",
+     "skill_code": "LIF.INSTR.FOLLOW2",
      "prompt": "Did your child follow the two-step instructions?",
-     "config": {
-      "rating_options": [
-       "trying",
-       "with_help",
-       "independent"
-      ]
-     },
-     "scoring": {
-      "mode": "parent_rubric"
-     },
-     "skills": [
-      {
-       "code": "LIF.INSTR.FOLLOW2",
-       "weight": 1
-      }
+     "rating_options": [
+      "trying",
+      "with_help",
+      "independent"
      ]
     },
     {
      "id": "s4",
      "type": "photo_evidence",
      "prompt": "Take a photo of the rocket (optional).",
-     "config": {
-      "optional": true,
-      "consent_required": true
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "optional": true,
+     "consent_required": true
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "rhythm-clap-along",
    "title": "Rhythm clap-along",
    "subject": "ART",
@@ -802,53 +772,37 @@
    "level_to": "L2",
    "duration_min": 10,
    "materials": [],
+   "skills": [
+    "ART.MUS.RHYTHM"
+   ],
    "interests": [
     "music",
     "dance"
    ],
    "summary": "Clap a steady beat along with a song.",
-   "recurring": false,
-   "skills": [
-    "ART.MUS.RHYTHM"
-   ],
    "steps": [
     {
      "id": "s1",
      "type": "audio_record",
      "prompt": "Clap along to a song and record it.",
-     "config": {
-      "max_seconds": 45,
-      "consent_required": true
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "max_seconds": 45,
+     "consent_required": true
     },
     {
      "id": "s2",
      "type": "parent_checklist",
+     "skill_code": "ART.MUS.RHYTHM",
      "prompt": "Did your child keep a steady beat?",
-     "config": {
-      "rating_options": [
-       "trying",
-       "with_help",
-       "independent"
-      ]
-     },
-     "scoring": {
-      "mode": "parent_rubric"
-     },
-     "skills": [
-      {
-       "code": "ART.MUS.RHYTHM",
-       "weight": 1
-      }
+     "rating_options": [
+      "trying",
+      "with_help",
+      "independent"
      ]
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "phonics-short-vowels",
    "title": "Phonics: short vowels",
    "subject": "ENG",
@@ -858,102 +812,78 @@
    "materials": [
     "picture cards"
    ],
+   "skills": [
+    "ENG.PHON.CVC"
+   ],
    "interests": [
     "stories"
    ],
    "summary": "Blend short-vowel words and match them to pictures.",
-   "recurring": false,
-   "skills": [
-    "ENG.PHON.CVC"
-   ],
    "steps": [
     {
      "id": "s1",
      "type": "media_prompt",
-     "config": {
-      "caption": "Say each sound slowly, then blend: c - a - t.",
-      "alt_text": "A cat sitting on a mat"
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "caption": "Say each sound slowly, then blend: c - a - t.",
+     "alt_text": "A cat sitting on a mat"
     },
     {
      "id": "s2",
      "type": "match_pairs",
      "prompt": "Match each word to its picture.",
-     "config": {
-      "left": [
-       {
-        "id": "l1",
-        "label": "cat"
-       },
-       {
-        "id": "l2",
-        "label": "dog"
-       },
-       {
-        "id": "l3",
-        "label": "pig"
-       }
-      ],
-      "right": [
-       {
-        "id": "r1",
-        "label": "🐱"
-       },
-       {
-        "id": "r2",
-        "label": "🐶"
-       },
-       {
-        "id": "r3",
-        "label": "🐷"
-       }
-      ]
-     },
-     "key": {
-      "pairs": [
-       [
-        "l1",
-        "r1"
-       ],
-       [
-        "l2",
-        "r2"
-       ],
-       [
-        "l3",
-        "r3"
-       ]
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "left": [
       {
-       "code": "ENG.PHON.CVC",
-       "weight": 1
+       "id": "l1",
+       "label": "cat"
+      },
+      {
+       "id": "l2",
+       "label": "dog"
+      },
+      {
+       "id": "l3",
+       "label": "pig"
       }
+     ],
+     "right": [
+      {
+       "id": "r1",
+       "label": "🐱"
+      },
+      {
+       "id": "r2",
+       "label": "🐶"
+      },
+      {
+       "id": "r3",
+       "label": "🐷"
+      }
+     ],
+     "pairs": [
+      [
+       "l1",
+       "r1"
+      ],
+      [
+       "l2",
+       "r2"
+      ],
+      [
+       "l3",
+       "r3"
+      ]
      ]
     },
     {
      "id": "s3",
      "type": "audio_record",
      "prompt": "Read these words aloud: cat, sit, hop.",
-     "config": {
-      "max_seconds": 30,
-      "consent_required": true
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "max_seconds": 30,
+     "consent_required": true
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "story-retell-in-3-pictures",
    "title": "Story retell in 3 pictures",
    "subject": "ENG",
@@ -963,112 +893,77 @@
    "materials": [
     "picture book"
    ],
-   "interests": [
-    "stories"
-   ],
-   "summary": "Put the story pictures in order and tell the story.",
-   "recurring": false,
    "skills": [
     "ENG.COMP.RETELL",
     "ENG.COMP.WHAT"
    ],
+   "interests": [
+    "stories"
+   ],
+   "summary": "Put the story pictures in order and tell the story.",
    "steps": [
     {
      "id": "s1",
      "type": "instruction",
-     "prompt": "Read a short picture book together. Pick three pictures from it.",
-     "scoring": {
-      "mode": "none"
-     }
+     "text": "Read a short picture book together. Pick three pictures from it."
     },
     {
      "id": "s2",
      "type": "sequence_order",
      "prompt": "Put the story in order.",
-     "config": {
-      "items": [
-       {
-        "id": "i1",
-        "label": "A boy plants a seed"
-       },
-       {
-        "id": "i2",
-        "label": "The seed grows into a plant"
-       },
-       {
-        "id": "i3",
-        "label": "The boy picks a flower"
-       }
-      ]
-     },
-     "key": {
-      "correct_order": [
-       "i1",
-       "i2",
-       "i3"
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "items": [
       {
-       "code": "ENG.COMP.RETELL",
-       "weight": 1
+       "id": "i1",
+       "label": "A boy plants a seed"
+      },
+      {
+       "id": "i2",
+       "label": "The seed grows into a plant"
+      },
+      {
+       "id": "i3",
+       "label": "The boy picks a flower"
       }
+     ],
+     "correct_order": [
+      "i1",
+      "i2",
+      "i3"
      ]
     },
     {
      "id": "s3",
      "type": "single_choice",
      "prompt": "What did the boy plant?",
-     "config": {
-      "options": [
-       {
-        "id": "o1",
-        "label": "A seed"
-       },
-       {
-        "id": "o2",
-        "label": "A shoe"
-       },
-       {
-        "id": "o3",
-        "label": "A ball"
-       }
-      ]
-     },
-     "key": {
-      "correct": [
-       "o1"
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "options": [
       {
-       "code": "ENG.COMP.WHAT",
-       "weight": 1
+       "id": "o1",
+       "label": "A seed"
+      },
+      {
+       "id": "o2",
+       "label": "A shoe"
+      },
+      {
+       "id": "o3",
+       "label": "A ball"
       }
+     ],
+     "correct": [
+      "o1"
      ]
     },
     {
      "id": "s4",
      "type": "audio_record",
      "prompt": "Tell the story in your own words.",
-     "config": {
-      "max_seconds": 60,
-      "consent_required": true
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "max_seconds": 60,
+     "consent_required": true
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "feelings-faces",
    "title": "Feelings faces",
    "subject": "LIF",
@@ -1076,116 +971,79 @@
    "level_to": "L2",
    "duration_min": 10,
    "materials": [],
+   "skills": [
+    "LIF.EMO.NAME"
+   ],
    "interests": [
     "stories"
    ],
    "summary": "Name feelings from faces and talk about them.",
-   "recurring": false,
-   "skills": [
-    "LIF.EMO.NAME"
-   ],
    "steps": [
     {
      "id": "s1",
      "type": "media_prompt",
-     "config": {
-      "caption": "Look at the faces. How do they feel?",
-      "alt_text": "Three faces: happy, sad and angry"
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "caption": "Look at the faces. How do they feel?",
+     "alt_text": "Three faces: happy, sad and angry"
     },
     {
      "id": "s2",
      "type": "single_choice",
      "prompt": "Which face is happy?",
-     "config": {
-      "options": [
-       {
-        "id": "o1",
-        "label": "😊"
-       },
-       {
-        "id": "o2",
-        "label": "😢"
-       },
-       {
-        "id": "o3",
-        "label": "😠"
-       }
-      ]
-     },
-     "key": {
-      "correct": [
-       "o1"
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "options": [
       {
-       "code": "LIF.EMO.NAME",
-       "weight": 1
+       "id": "o1",
+       "label": "😊"
+      },
+      {
+       "id": "o2",
+       "label": "😢"
+      },
+      {
+       "id": "o3",
+       "label": "😠"
       }
+     ],
+     "correct": [
+      "o1"
      ]
     },
     {
      "id": "s3",
      "type": "single_choice",
      "prompt": "Which face is sad?",
-     "config": {
-      "options": [
-       {
-        "id": "o1",
-        "label": "😊"
-       },
-       {
-        "id": "o2",
-        "label": "😢"
-       },
-       {
-        "id": "o3",
-        "label": "😠"
-       }
-      ]
-     },
-     "key": {
-      "correct": [
-       "o2"
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "options": [
       {
-       "code": "LIF.EMO.NAME",
-       "weight": 1
+       "id": "o1",
+       "label": "😊"
+      },
+      {
+       "id": "o2",
+       "label": "😢"
+      },
+      {
+       "id": "o3",
+       "label": "😠"
       }
+     ],
+     "correct": [
+      "o2"
      ]
     },
     {
      "id": "s4",
      "type": "reflection",
      "prompt": "How do you feel right now?",
-     "config": {
-      "emoji_options": [
-       "😊",
-       "😢",
-       "😠",
-       "😴"
-      ]
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "emoji_options": [
+      "😊",
+      "😢",
+      "😠",
+      "😴"
+     ]
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "set-the-table",
    "title": "Set the table",
    "subject": "LIF",
@@ -1196,70 +1054,46 @@
     "plates",
     "cups"
    ],
-   "interests": [
-    "cooking"
-   ],
-   "summary": "Help set the table for a family meal.",
-   "recurring": false,
    "skills": [
     "LIF.SELF.MEAL",
     "LIF.INSTR.FOLLOW2"
    ],
+   "interests": [
+    "cooking"
+   ],
+   "summary": "Help set the table for a family meal.",
    "steps": [
     {
      "id": "s1",
      "type": "instruction",
-     "prompt": "Put one plate and one cup at each place. Then put a spoon next to each plate.",
-     "scoring": {
-      "mode": "none"
-     }
+     "text": "Put one plate and one cup at each place. Then put a spoon next to each plate."
     },
     {
      "id": "s2",
      "type": "parent_checklist",
+     "skill_code": "LIF.SELF.MEAL",
      "prompt": "Did your child help serve or set up the meal?",
-     "config": {
-      "rating_options": [
-       "trying",
-       "with_help",
-       "independent"
-      ]
-     },
-     "scoring": {
-      "mode": "parent_rubric"
-     },
-     "skills": [
-      {
-       "code": "LIF.SELF.MEAL",
-       "weight": 1
-      }
+     "rating_options": [
+      "trying",
+      "with_help",
+      "independent"
      ]
     },
     {
      "id": "s3",
      "type": "parent_checklist",
+     "skill_code": "LIF.INSTR.FOLLOW2",
      "prompt": "Did your child follow the two steps?",
-     "config": {
-      "rating_options": [
-       "trying",
-       "with_help",
-       "independent"
-      ]
-     },
-     "scoring": {
-      "mode": "parent_rubric"
-     },
-     "skills": [
-      {
-       "code": "LIF.INSTR.FOLLOW2",
-       "weight": 1
-      }
+     "rating_options": [
+      "trying",
+      "with_help",
+      "independent"
      ]
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "count-the-dogs",
    "title": "Count the dogs",
    "subject": "MAT",
@@ -1267,210 +1101,135 @@
    "level_to": "L1",
    "duration_min": 10,
    "materials": [],
+   "skills": [
+    "MAT.NUM.COUNT20"
+   ],
    "interests": [
     "animals"
    ],
    "summary": "Count groups of dogs, from 3 up to 15.",
-   "recurring": false,
-   "skills": [
-    "MAT.NUM.COUNT20"
-   ],
    "steps": [
     {
      "id": "s1",
      "type": "media_prompt",
-     "config": {
-      "caption": "Let us count some dogs together. Point to each dog as you count.",
-      "alt_text": "A park with many dogs playing"
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "caption": "Let us count some dogs together. Point to each dog as you count.",
+     "alt_text": "A park with many dogs playing"
     },
     {
      "id": "s2",
      "type": "single_choice",
      "prompt": "Count: 🐕🐕🐕. How many dogs?",
-     "config": {
-      "options": [
-       {
-        "id": "o1",
-        "label": "2"
-       },
-       {
-        "id": "o2",
-        "label": "3"
-       },
-       {
-        "id": "o3",
-        "label": "4"
-       }
-      ]
-     },
-     "key": {
-      "correct": [
-       "o2"
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "options": [
       {
-       "code": "MAT.NUM.COUNT20",
-       "weight": 1
+       "id": "o1",
+       "label": "2"
+      },
+      {
+       "id": "o2",
+       "label": "3"
+      },
+      {
+       "id": "o3",
+       "label": "4"
       }
      ],
-     "feedback": {
-      "hints": [
-       "Touch each dog once."
-      ]
-     }
+     "correct": [
+      "o2"
+     ],
+     "hint": "Touch each dog once."
     },
     {
      "id": "s3",
      "type": "single_choice",
      "prompt": "Count: 🐕🐕🐕🐕🐕. How many dogs?",
-     "config": {
-      "options": [
-       {
-        "id": "o1",
-        "label": "4"
-       },
-       {
-        "id": "o2",
-        "label": "5"
-       },
-       {
-        "id": "o3",
-        "label": "6"
-       }
-      ]
-     },
-     "key": {
-      "correct": [
-       "o2"
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "options": [
       {
-       "code": "MAT.NUM.COUNT20",
-       "weight": 1
+       "id": "o1",
+       "label": "4"
+      },
+      {
+       "id": "o2",
+       "label": "5"
+      },
+      {
+       "id": "o3",
+       "label": "6"
       }
+     ],
+     "correct": [
+      "o2"
      ]
     },
     {
      "id": "s4",
      "type": "single_choice",
      "prompt": "Count: 🐕🐕🐕🐕🐕🐕🐕🐕. How many dogs?",
-     "config": {
-      "options": [
-       {
-        "id": "o1",
-        "label": "7"
-       },
-       {
-        "id": "o2",
-        "label": "8"
-       },
-       {
-        "id": "o3",
-        "label": "9"
-       }
-      ]
-     },
-     "key": {
-      "correct": [
-       "o2"
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "options": [
       {
-       "code": "MAT.NUM.COUNT20",
-       "weight": 1
+       "id": "o1",
+       "label": "7"
+      },
+      {
+       "id": "o2",
+       "label": "8"
+      },
+      {
+       "id": "o3",
+       "label": "9"
       }
+     ],
+     "correct": [
+      "o2"
      ]
     },
     {
      "id": "s5",
      "type": "single_choice",
      "prompt": "Count: 🐕🐕🐕🐕🐕🐕🐕🐕🐕🐕🐕🐕. How many dogs?",
-     "config": {
-      "options": [
-       {
-        "id": "o1",
-        "label": "11"
-       },
-       {
-        "id": "o2",
-        "label": "12"
-       },
-       {
-        "id": "o3",
-        "label": "13"
-       }
-      ]
-     },
-     "key": {
-      "correct": [
-       "o2"
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "options": [
       {
-       "code": "MAT.NUM.COUNT20",
-       "weight": 1
+       "id": "o1",
+       "label": "11"
+      },
+      {
+       "id": "o2",
+       "label": "12"
+      },
+      {
+       "id": "o3",
+       "label": "13"
       }
+     ],
+     "correct": [
+      "o2"
      ]
     },
     {
      "id": "s6",
      "type": "single_choice",
      "prompt": "Count: 🐕🐕🐕🐕🐕🐕🐕🐕🐕🐕🐕🐕🐕🐕🐕. How many dogs?",
-     "config": {
-      "options": [
-       {
-        "id": "o1",
-        "label": "14"
-       },
-       {
-        "id": "o2",
-        "label": "15"
-       },
-       {
-        "id": "o3",
-        "label": "16"
-       }
-      ]
-     },
-     "key": {
-      "correct": [
-       "o2"
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "options": [
       {
-       "code": "MAT.NUM.COUNT20",
-       "weight": 1
+       "id": "o1",
+       "label": "14"
+      },
+      {
+       "id": "o2",
+       "label": "15"
+      },
+      {
+       "id": "o3",
+       "label": "16"
       }
+     ],
+     "correct": [
+      "o2"
      ]
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "kitchen-counting",
    "title": "Kitchen counting",
    "subject": "MAT",
@@ -1481,101 +1240,65 @@
     "spoons",
     "cups"
    ],
-   "interests": [
-    "cooking"
-   ],
-   "summary": "Follow two steps in the kitchen and count what you find.",
-   "recurring": false,
    "skills": [
     "MAT.NUM.COUNT20",
     "LIF.INSTR.FOLLOW2"
    ],
+   "interests": [
+    "cooking"
+   ],
+   "summary": "Follow two steps in the kitchen and count what you find.",
    "steps": [
     {
      "id": "s1",
      "type": "instruction",
-     "prompt": "First, bring 5 spoons to the table. Then bring 3 cups.",
-     "scoring": {
-      "mode": "none"
-     }
+     "text": "First, bring 5 spoons to the table. Then bring 3 cups."
     },
     {
      "id": "s2",
      "type": "single_choice",
      "prompt": "How many spoons and cups are on the table altogether?",
-     "config": {
-      "options": [
-       {
-        "id": "o1",
-        "label": "7"
-       },
-       {
-        "id": "o2",
-        "label": "8"
-       },
-       {
-        "id": "o3",
-        "label": "9"
-       }
-      ]
-     },
-     "key": {
-      "correct": [
-       "o2"
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "options": [
       {
-       "code": "MAT.NUM.COUNT20",
-       "weight": 1
+       "id": "o1",
+       "label": "7"
+      },
+      {
+       "id": "o2",
+       "label": "8"
+      },
+      {
+       "id": "o3",
+       "label": "9"
       }
      ],
-     "feedback": {
-      "hints": [
-       "Count the spoons first, then keep counting the cups."
-      ]
-     }
+     "correct": [
+      "o2"
+     ],
+     "hint": "Count the spoons first, then keep counting the cups."
     },
     {
      "id": "s3",
      "type": "parent_checklist",
+     "skill_code": "LIF.INSTR.FOLLOW2",
      "prompt": "Did your child follow both steps in order?",
-     "config": {
-      "rating_options": [
-       "trying",
-       "with_help",
-       "independent"
-      ]
-     },
-     "scoring": {
-      "mode": "parent_rubric"
-     },
-     "skills": [
-      {
-       "code": "LIF.INSTR.FOLLOW2",
-       "weight": 1
-      }
+     "rating_options": [
+      "trying",
+      "with_help",
+      "independent"
      ]
     },
     {
      "id": "s4",
      "type": "photo_evidence",
      "prompt": "Take a photo of the table (optional).",
-     "config": {
-      "optional": true,
-      "consent_required": true
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "optional": true,
+     "consent_required": true
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "money-sorting",
    "title": "Money sorting",
    "subject": "MAT",
@@ -1585,110 +1308,86 @@
    "materials": [
     "coins"
    ],
-   "interests": [],
-   "summary": "Match coins to their values and sort real coins.",
-   "recurring": false,
    "skills": [
     "MAT.MONEY.COINS"
    ],
+   "interests": [],
+   "summary": "Match coins to their values and sort real coins.",
    "steps": [
     {
      "id": "s1",
      "type": "match_pairs",
      "prompt": "Match the coin to its value.",
-     "config": {
-      "left": [
-       {
-        "id": "l1",
-        "label": "₹1"
-       },
-       {
-        "id": "l2",
-        "label": "₹2"
-       },
-       {
-        "id": "l3",
-        "label": "₹5"
-       },
-       {
-        "id": "l4",
-        "label": "₹10"
-       }
-      ],
-      "right": [
-       {
-        "id": "r1",
-        "label": "one rupee"
-       },
-       {
-        "id": "r2",
-        "label": "two rupees"
-       },
-       {
-        "id": "r3",
-        "label": "five rupees"
-       },
-       {
-        "id": "r4",
-        "label": "ten rupees"
-       }
-      ]
-     },
-     "key": {
-      "pairs": [
-       [
-        "l1",
-        "r1"
-       ],
-       [
-        "l2",
-        "r2"
-       ],
-       [
-        "l3",
-        "r3"
-       ],
-       [
-        "l4",
-        "r4"
-       ]
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "left": [
       {
-       "code": "MAT.MONEY.COINS",
-       "weight": 1
+       "id": "l1",
+       "label": "₹1"
+      },
+      {
+       "id": "l2",
+       "label": "₹2"
+      },
+      {
+       "id": "l3",
+       "label": "₹5"
+      },
+      {
+       "id": "l4",
+       "label": "₹10"
       }
+     ],
+     "right": [
+      {
+       "id": "r1",
+       "label": "one rupee"
+      },
+      {
+       "id": "r2",
+       "label": "two rupees"
+      },
+      {
+       "id": "r3",
+       "label": "five rupees"
+      },
+      {
+       "id": "r4",
+       "label": "ten rupees"
+      }
+     ],
+     "pairs": [
+      [
+       "l1",
+       "r1"
+      ],
+      [
+       "l2",
+       "r2"
+      ],
+      [
+       "l3",
+       "r3"
+      ],
+      [
+       "l4",
+       "r4"
+      ]
      ]
     },
     {
      "id": "s2",
      "type": "parent_checklist",
+     "skill_code": "MAT.MONEY.COINS",
      "prompt": "Ask your child to sort real coins by value. How did they do?",
-     "config": {
-      "rating_options": [
-       "trying",
-       "with_help",
-       "independent"
-      ]
-     },
-     "scoring": {
-      "mode": "parent_rubric"
-     },
-     "skills": [
-      {
-       "code": "MAT.MONEY.COINS",
-       "weight": 1
-      }
+     "rating_options": [
+      "trying",
+      "with_help",
+      "independent"
      ]
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "outdoor-measurement",
    "title": "Outdoor measurement with hands and feet",
    "subject": "MAT",
@@ -1698,65 +1397,43 @@
    "materials": [
     "outdoor space"
    ],
+   "skills": [
+    "MAT.MEAS.COMPARE"
+   ],
    "interests": [
     "nature"
    ],
    "summary": "Measure things with hand spans and footsteps and compare.",
-   "recurring": false,
-   "skills": [
-    "MAT.MEAS.COMPARE"
-   ],
    "steps": [
     {
      "id": "s1",
      "type": "timer_task",
      "prompt": "Measure three things outside with your hand span.",
-     "config": {
-      "duration_sec": 600,
-      "checklist": [
-       "A bench",
-       "A door",
-       "A tree trunk"
-      ]
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "duration_sec": 600,
+     "checklist": [
+      "A bench",
+      "A door",
+      "A tree trunk"
+     ]
     },
     {
      "id": "s2",
      "type": "numeric_input",
      "prompt": "The bench is 3 hand spans and the door is 2 hand spans. How many altogether?",
-     "key": {
-      "answer": 5,
-      "tolerance": 0
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
-      {
-       "code": "MAT.MEAS.COMPARE",
-       "weight": 1
-      }
-     ]
+     "answer": 5,
+     "tolerance": 0
     },
     {
      "id": "s3",
      "type": "photo_evidence",
      "prompt": "Take a photo of your measuring (optional).",
-     "config": {
-      "optional": true,
-      "consent_required": true
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "optional": true,
+     "consent_required": true
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "balloon-catch",
    "title": "Balloon catch",
    "subject": "PHY",
@@ -1766,54 +1443,38 @@
    "materials": [
     "a balloon"
    ],
+   "skills": [
+    "PHY.GROSS.BALL"
+   ],
    "interests": [
     "sports"
    ],
    "summary": "Toss and catch a balloon.",
-   "recurring": false,
-   "skills": [
-    "PHY.GROSS.BALL"
-   ],
    "steps": [
     {
      "id": "s1",
      "type": "timer_task",
      "prompt": "Toss the balloon up and catch it. Try 10 times.",
-     "config": {
-      "duration_sec": 300,
-      "checklist": [
-       "Tossed 10 times"
-      ]
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "duration_sec": 300,
+     "checklist": [
+      "Tossed 10 times"
+     ]
     },
     {
      "id": "s2",
      "type": "parent_checklist",
+     "skill_code": "PHY.GROSS.BALL",
      "prompt": "How well did your child catch?",
-     "config": {
-      "rating_options": [
-       "trying",
-       "with_help",
-       "independent"
-      ]
-     },
-     "scoring": {
-      "mode": "parent_rubric"
-     },
-     "skills": [
-      {
-       "code": "PHY.GROSS.BALL",
-       "weight": 1
-      }
+     "rating_options": [
+      "trying",
+      "with_help",
+      "independent"
      ]
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "five-senses-walk",
    "title": "Five senses walk",
    "subject": "SCI",
@@ -1823,72 +1484,51 @@
    "materials": [
     "outdoor space"
    ],
+   "skills": [
+    "SCI.OBS.SENSES"
+   ],
    "interests": [
     "nature"
    ],
    "summary": "Walk outside and describe what you see, hear, smell and feel.",
-   "recurring": false,
-   "skills": [
-    "SCI.OBS.SENSES"
-   ],
    "steps": [
     {
      "id": "s1",
      "type": "timer_task",
      "prompt": "Go for a walk. Find one thing for each sense.",
-     "config": {
-      "duration_sec": 900,
-      "checklist": [
-       "Something I can see",
-       "Something I can hear",
-       "Something I can smell",
-       "Something I can touch"
-      ]
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "duration_sec": 900,
+     "checklist": [
+      "Something I can see",
+      "Something I can hear",
+      "Something I can smell",
+      "Something I can touch"
+     ]
     },
     {
      "id": "s2",
      "type": "reflection",
      "prompt": "How did the walk feel?",
-     "config": {
-      "emoji_options": [
-       "😀",
-       "🙂",
-       "😐"
-      ]
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "emoji_options": [
+      "😀",
+      "🙂",
+      "😐"
+     ]
     },
     {
      "id": "s3",
      "type": "parent_checklist",
+     "skill_code": "SCI.OBS.SENSES",
      "prompt": "Could your child describe things using the senses?",
-     "config": {
-      "rating_options": [
-       "trying",
-       "with_help",
-       "independent"
-      ]
-     },
-     "scoring": {
-      "mode": "parent_rubric"
-     },
-     "skills": [
-      {
-       "code": "SCI.OBS.SENSES",
-       "weight": 1
-      }
+     "rating_options": [
+      "trying",
+      "with_help",
+      "independent"
      ]
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "plant-parts-puzzle",
    "title": "Plant parts puzzle",
    "subject": "SCI",
@@ -1899,91 +1539,77 @@
     "a leaf",
     "a flower"
    ],
+   "skills": [
+    "SCI.LIV.PLANTS"
+   ],
    "interests": [
     "nature"
    ],
    "summary": "Match each plant part to its job.",
-   "recurring": false,
-   "skills": [
-    "SCI.LIV.PLANTS"
-   ],
    "steps": [
     {
      "id": "s1",
      "type": "match_pairs",
      "prompt": "Match each plant part to what it does.",
-     "config": {
-      "left": [
-       {
-        "id": "l1",
-        "label": "Root"
-       },
-       {
-        "id": "l2",
-        "label": "Stem"
-       },
-       {
-        "id": "l3",
-        "label": "Leaf"
-       },
-       {
-        "id": "l4",
-        "label": "Flower"
-       }
-      ],
-      "right": [
-       {
-        "id": "r1",
-        "label": "Holds the plant in the soil"
-       },
-       {
-        "id": "r2",
-        "label": "Carries water up"
-       },
-       {
-        "id": "r3",
-        "label": "Makes food from sunlight"
-       },
-       {
-        "id": "r4",
-        "label": "Makes seeds"
-       }
-      ]
-     },
-     "key": {
-      "pairs": [
-       [
-        "l1",
-        "r1"
-       ],
-       [
-        "l2",
-        "r2"
-       ],
-       [
-        "l3",
-        "r3"
-       ],
-       [
-        "l4",
-        "r4"
-       ]
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "left": [
       {
-       "code": "SCI.LIV.PLANTS",
-       "weight": 1
+       "id": "l1",
+       "label": "Root"
+      },
+      {
+       "id": "l2",
+       "label": "Stem"
+      },
+      {
+       "id": "l3",
+       "label": "Leaf"
+      },
+      {
+       "id": "l4",
+       "label": "Flower"
       }
+     ],
+     "right": [
+      {
+       "id": "r1",
+       "label": "Holds the plant in the soil"
+      },
+      {
+       "id": "r2",
+       "label": "Carries water up"
+      },
+      {
+       "id": "r3",
+       "label": "Makes food from sunlight"
+      },
+      {
+       "id": "r4",
+       "label": "Makes seeds"
+      }
+     ],
+     "pairs": [
+      [
+       "l1",
+       "r1"
+      ],
+      [
+       "l2",
+       "r2"
+      ],
+      [
+       "l3",
+       "r3"
+      ],
+      [
+       "l4",
+       "r4"
+      ]
      ]
     }
-   ]
+   ],
+   "recurring": false
   },
   {
-   "schema_version": 2,
    "slug": "weather-diary",
    "title": "Weather diary (7 days)",
    "subject": "SCI",
@@ -1991,109 +1617,65 @@
    "level_to": "L2",
    "duration_min": 5,
    "materials": [],
+   "skills": [
+    "SCI.ENV.WEATHER",
+    "SOC.TIME.SEQ"
+   ],
    "interests": [
     "nature"
    ],
    "summary": "Look outside each day and record the weather.",
    "recurring": true,
-   "skills": [
-    "SCI.ENV.WEATHER",
-    "SOC.TIME.SEQ"
-   ],
    "steps": [
     {
      "id": "s1",
      "type": "single_choice",
      "prompt": "What is the weather today?",
-     "config": {
-      "options": [
-       {
-        "id": "o1",
-        "label": "Sunny"
-       },
-       {
-        "id": "o2",
-        "label": "Cloudy"
-       },
-       {
-        "id": "o3",
-        "label": "Rainy"
-       },
-       {
-        "id": "o4",
-        "label": "Windy"
-       }
-      ]
-     },
-     "key": {
-      "correct": [
-       "o1"
-      ]
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "options": [
+      {
+       "id": "o1",
+       "label": "Sunny"
+      },
+      {
+       "id": "o2",
+       "label": "Cloudy"
+      },
+      {
+       "id": "o3",
+       "label": "Rainy"
+      },
+      {
+       "id": "o4",
+       "label": "Windy"
+      }
+     ],
+     "correct": [
+      "o1"
+     ],
+     "scored": false
     },
     {
      "id": "s2",
      "type": "short_text",
      "prompt": "Write or say one word about the sky.",
-     "config": {
-      "max_len": 40
-     },
-     "key": {
-      "accepted": []
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "accepted": [],
+     "max_len": 40,
+     "scored": false
     },
     {
      "id": "s3",
      "type": "parent_checklist",
+     "skill_code": "SCI.ENV.WEATHER",
      "prompt": "Did your child observe and record the weather?",
-     "config": {
-      "rating_options": [
-       "trying",
-       "with_help",
-       "independent"
-      ]
-     },
-     "scoring": {
-      "mode": "parent_rubric"
-     },
-     "skills": [
-      {
-       "code": "SCI.ENV.WEATHER",
-       "weight": 1
-      }
-     ]
-    },
-    {
-     "id": "s4",
-     "type": "parent_checklist",
-     "prompt": "Looking at this week's weather records, did your child put the days in the right order (first day to last day)?",
-     "config": {
-      "rating_options": [
-       "trying",
-       "with_help",
-       "independent"
-      ]
-     },
-     "scoring": {
-      "mode": "parent_rubric"
-     },
-     "skills": [
-      {
-       "code": "SOC.TIME.SEQ",
-       "weight": 1
-      }
+     "rating_options": [
+      "trying",
+      "with_help",
+      "independent"
      ]
     }
    ]
   },
   {
-   "schema_version": 2,
    "slug": "sort-the-waste",
    "title": "Sort the waste",
    "subject": "SOC",
@@ -2103,65 +1685,47 @@
    "materials": [
     "household waste"
    ],
+   "skills": [
+    "SOC.ENV.WASTE"
+   ],
    "interests": [
     "nature"
    ],
    "summary": "Sort household waste and learn how to reuse.",
-   "recurring": false,
-   "skills": [
-    "SOC.ENV.WASTE"
-   ],
    "steps": [
     {
      "id": "s1",
      "type": "sequence_order",
      "prompt": "Put the steps in order.",
-     "config": {
-      "items": [
-       {
-        "id": "i1",
-        "label": "Collect the waste"
-       },
-       {
-        "id": "i2",
-        "label": "Separate wet and dry waste"
-       },
-       {
-        "id": "i3",
-        "label": "Put each into the right bin"
-       }
-      ]
-     },
-     "key": {
-      "correct_order": [
-       "i1",
-       "i2",
-       "i3"
-      ]
-     },
-     "scoring": {
-      "mode": "auto"
-     },
-     "skills": [
+     "items": [
       {
-       "code": "SOC.ENV.WASTE",
-       "weight": 1
+       "id": "i1",
+       "label": "Collect the waste"
+      },
+      {
+       "id": "i2",
+       "label": "Separate wet and dry waste"
+      },
+      {
+       "id": "i3",
+       "label": "Put each into the right bin"
       }
+     ],
+     "correct_order": [
+      "i1",
+      "i2",
+      "i3"
      ]
     },
     {
      "id": "s2",
      "type": "photo_evidence",
      "prompt": "Take a photo of the sorted waste (optional).",
-     "config": {
-      "optional": true,
-      "consent_required": true
-     },
-     "scoring": {
-      "mode": "none"
-     }
+     "optional": true,
+     "consent_required": true
     }
-   ]
+   ],
+   "recurring": false
   }
  ]
 }

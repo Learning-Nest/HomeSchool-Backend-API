@@ -67,8 +67,10 @@ def add_evidence(
     session_id: uuid.UUID | None = None,
     step_id: str | None = None,
     note: str | None = None,
+    weight_factor: float = 1.0,
 ) -> None:
-    weight = m.evidence_weight(source, independence)
+    """weight_factor is the exercise's weight for this skill (activity format v2); 1.0 for everything else."""
+    weight = m.evidence_weight(source, independence) * weight_factor
     values = dict(
         family_id=family_id,
         child_id=child_id,

@@ -135,13 +135,13 @@ def test_parent_review_adds_evidence_and_can_be_repeated(parent, activities, dat
         and r.json()["result"]["needs_review"] == []
         and r.json()["result"]["reviewed"] == {"s3": "with_help"}
     )
-    skill = next(s for s in DEFS["kitchen-counting"]["steps"] if s["id"] == "s3")["skill_code"]
+    skill = next(s for s in DEFS["kitchen-counting"]["steps"] if s["id"] == "s3")["skills"][0]["code"]
     m = {x["skill_code"]: x for x in parent.get(f"/v1/children/{kid['id']}/mastery").json()}
-    # the skill also has one auto-scored item (1.0) from step s2; the review adds 0.6 at weight 1: 1 + 0.5 * (0.6 - 1) = 0.8
-    assert m[skill]["score"] == 0.8 and m[skill]["evidence_count"] == 2
+    # s2 now credits only MAT.NUM.COUNT20, so the review is the one piece of evidence for this skill
+    assert m[skill]["score"] == 0.6 and m[skill]["evidence_count"] == 1
     parent.post(f"/v1/sessions/{sid}/review", json={"ratings": {"s3": "independent"}})  # the parent changes their mind
     m = {x["skill_code"]: x for x in parent.get(f"/v1/children/{kid['id']}/mastery").json()}
-    assert m[skill]["score"] == 1.0 and m[skill]["evidence_count"] == 2  # replaced, not duplicated
+    assert m[skill]["score"] == 1.0 and m[skill]["evidence_count"] == 1  # replaced, not duplicated
 
 
 def test_review_requires_a_submitted_session(parent, activities):
@@ -266,7 +266,7 @@ def test_sessions_keep_the_version_they_started_with(parent, make_admin, activit
     s1 = start(parent.client, parent.headers, kid["id"], a["id"]).json()
     detail = admin.get(f"/v1/admin/activities/{a['id']}").json()
     new_def = json.loads(json.dumps(detail["definition"]))
-    new_def["steps"][0]["caption"] = "EDITED STEP TEXT"
+    new_def["steps"][0]["config"]["caption"] = "EDITED STEP TEXT"
     r = admin.put(f"/v1/admin/activities/{a['id']}/definition", json={"definition": new_def})
     assert r.status_code == 200, r.text
     assert r.json()["version"] == 2

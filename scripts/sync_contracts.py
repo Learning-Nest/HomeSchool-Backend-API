@@ -20,6 +20,10 @@ def main() -> None:
     c, k = Path(args.contracts), Path(args.content)
     pairs = [
         (c / "schemas" / "activity-content.schema.json", ROOT / "app" / "content" / "activity.schema.json"),
+        (
+            c / "schemas" / "activity-content.v2.schema.json",
+            ROOT / "app" / "content" / "activity.v2.schema.json",
+        ),
         (c / "test-vectors" / "mastery" / "mastery-vectors.json", ROOT / "tests" / "vectors" / "mastery-vectors.json"),
         (c / "test-vectors" / "mastery" / "streak-vectors.json", ROOT / "tests" / "vectors" / "streak-vectors.json"),
         (k / "dist" / "bundle.json", ROOT / "seed" / "launch-bundle.json"),

@@ -9,29 +9,36 @@ from pathlib import Path
 BUNDLE = json.loads(
     (Path(__file__).resolve().parent.parent / "seed" / "launch-bundle.json").read_text(encoding="utf-8")
 )
-DEFS = {a["slug"]: a for a in BUNDLE["activities"]}
+DEFS = {a["slug"]: a for a in BUNDLE["activities"]}  # format v2 (what the seed ships)
+# The v1 launch set, frozen: proves old documents still validate, upgrade, score and render the same.
+V1_BUNDLE = json.loads(
+    (Path(__file__).resolve().parent / "vectors" / "launch-bundle.v1.json").read_text(encoding="utf-8")
+)
+V1_DEFS = {a["slug"]: a for a in V1_BUNDLE["activities"]}
 
 
 def correct_answers(slug: str, wrong: set[str] = frozenset()) -> dict:
     """Right answers for every auto-scored step of the activity (steps listed in `wrong` get a wrong answer)."""
     out: dict = {}
-    for st in DEFS[slug]["steps"]:
+    defs = DEFS if slug in DEFS else V1_DEFS
+    for st in defs[slug]["steps"]:
         t = st["type"]
-        if st.get("scored") is False:
+        if st.get("scored") is False or (st.get("scoring") or {}).get("mode") == "none" or st.get("enabled") is False:
             continue
+        flat = {**st, **st.get("config", {}), **st.get("key", {})}  # v1 steps are already flat
         if t == "single_choice":
-            good = st["correct"][0]
-            bad = next(o["id"] for o in st["options"] if o["id"] != good)
+            good = flat["correct"][0]
+            bad = next(o["id"] for o in flat["options"] if o["id"] != good)
             out[st["id"]] = bad if st["id"] in wrong else good
         elif t == "sequence_order":
-            out[st["id"]] = list(reversed(st["correct_order"])) if st["id"] in wrong else st["correct_order"]
+            out[st["id"]] = list(reversed(flat["correct_order"])) if st["id"] in wrong else flat["correct_order"]
         elif t == "match_pairs":
-            pairs = st["pairs"]
+            pairs = flat["pairs"]
             out[st["id"]] = (
                 [[a, pairs[(i + 1) % len(pairs)][1]] for i, (a, _b) in enumerate(pairs)] if st["id"] in wrong else pairs
             )
         elif t == "numeric_input":
-            out[st["id"]] = st["answer"] + 100 if st["id"] in wrong else st["answer"]
+            out[st["id"]] = flat["answer"] + 100 if st["id"] in wrong else flat["answer"]
     return out
 
 

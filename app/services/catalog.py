@@ -21,7 +21,7 @@ from app.models import (
 )
 from app.schemas import BundleIn, BundleReport
 from app.security import now
-from app.services.content import validate_activity
+from app.services.content import finalize, validate_activity
 
 ENTITIES = ("levels", "subjects", "interests", "skills", "activities")
 
@@ -81,6 +81,7 @@ def update_definition(db: Session, a: Activity, definition: dict[str, Any]) -> N
             "The slug cannot be changed.",
             {"problems": ["slug: must equal the activity's slug"]},
         )
+    definition = finalize(definition)  # v2: the top-level skills are derived from the exercises
     problems = validate_activity(definition, known_skill_codes(db), level_order(db))
     if problems:
         raise ApiError(422, "content_invalid", "The activity failed validation.", {"problems": problems})
@@ -138,7 +139,7 @@ def _check_taxonomy(bundle: BundleIn, db: Session) -> tuple[list[str], set[str],
     for n in graph:
         visit(n, [])
     for a in bundle.activities:
-        for p in validate_activity(a, skills, levels):
+        for p in validate_activity(finalize(a), skills, levels):
             problems.append(f"activity {a.get('slug')}: {p}")
         if a.get("subject") not in subjects:
             problems.append(f"activity {a.get('slug')}: unknown subject {a.get('subject')!r}")
@@ -221,7 +222,7 @@ def import_bundle(db: Session, bundle: BundleIn) -> BundleReport:
                     db.add(SkillPrerequisite(skill_code=s["code"], prerequisite_code=p))
         db.flush()
 
-        for d in bundle.activities:
+        for d in map(finalize, bundle.activities):
             a = db.scalar(select(Activity).where(Activity.slug == d["slug"]))
             if a is None:
                 a = Activity(
