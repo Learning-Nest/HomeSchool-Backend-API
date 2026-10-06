@@ -1757,6 +1757,282 @@
   },
   {
    "schema_version": 2,
+   "slug": "shape-hunt",
+   "title": "Shape hunt",
+   "subject": "MAT",
+   "level_from": "L1",
+   "level_to": "L1",
+   "duration_min": 15,
+   "materials": [],
+   "interests": [
+    "art",
+    "building"
+   ],
+   "summary": "Spot circles, squares and triangles, match them to their names, then hunt for shapes around your home.",
+   "recurring": false,
+   "skills": [
+    "MAT.NUM.COUNT20",
+    "MAT.SHAPE.2D"
+   ],
+   "steps": [
+    {
+     "id": "s1",
+     "type": "instruction",
+     "prompt": "Shapes are everywhere! Today we will find circles, squares and triangles.",
+     "scoring": {
+      "mode": "none"
+     }
+    },
+    {
+     "id": "s2",
+     "type": "single_choice",
+     "prompt": "Which one is a circle?",
+     "config": {
+      "options": [
+       {
+        "id": "o1",
+        "label": "🟦"
+       },
+       {
+        "id": "o2",
+        "label": "🔵"
+       },
+       {
+        "id": "o3",
+        "label": "🔺"
+       }
+      ]
+     },
+     "key": {
+      "correct": [
+       "o2"
+      ]
+     },
+     "scoring": {
+      "mode": "auto"
+     },
+     "skills": [
+      {
+       "code": "MAT.SHAPE.2D",
+       "weight": 1
+      }
+     ],
+     "feedback": {
+      "hints": [
+       "A circle is round, with no corners."
+      ]
+     }
+    },
+    {
+     "id": "s3",
+     "type": "multi_choice",
+     "prompt": "Which things are round like a circle? Pick all of them.",
+     "config": {
+      "options": [
+       {
+        "id": "o1",
+        "label": "⚽ Ball"
+       },
+       {
+        "id": "o2",
+        "label": "📕 Book"
+       },
+       {
+        "id": "o3",
+        "label": "🍪 Cookie"
+       },
+       {
+        "id": "o4",
+        "label": "🕐 Clock"
+       },
+       {
+        "id": "o5",
+        "label": "🪁 Kite"
+       }
+      ]
+     },
+     "key": {
+      "correct": [
+       "o1",
+       "o3",
+       "o4"
+      ]
+     },
+     "scoring": {
+      "mode": "auto",
+      "partial_credit": true
+     },
+     "skills": [
+      {
+       "code": "MAT.SHAPE.2D",
+       "weight": 1
+      }
+     ],
+     "feedback": {
+      "hints": [
+       "Look for things with no corners."
+      ]
+     }
+    },
+    {
+     "id": "s4",
+     "type": "match_pairs",
+     "prompt": "Match each shape to its name.",
+     "config": {
+      "left": [
+       {
+        "id": "l1",
+        "label": "Circle"
+       },
+       {
+        "id": "l2",
+        "label": "Square"
+       },
+       {
+        "id": "l3",
+        "label": "Triangle"
+       }
+      ],
+      "right": [
+       {
+        "id": "r1",
+        "label": "🔵"
+       },
+       {
+        "id": "r2",
+        "label": "🟦"
+       },
+       {
+        "id": "r3",
+        "label": "🔺"
+       }
+      ]
+     },
+     "key": {
+      "pairs": [
+       [
+        "l1",
+        "r1"
+       ],
+       [
+        "l2",
+        "r2"
+       ],
+       [
+        "l3",
+        "r3"
+       ]
+      ]
+     },
+     "scoring": {
+      "mode": "auto"
+     },
+     "skills": [
+      {
+       "code": "MAT.SHAPE.2D",
+       "weight": 1
+      }
+     ]
+    },
+    {
+     "id": "s5",
+     "type": "numeric_input",
+     "prompt": "Count the triangles: 🔺🔵🔺🟦🔺🔵. How many triangles?",
+     "key": {
+      "answer": 3,
+      "tolerance": 0
+     },
+     "scoring": {
+      "mode": "auto"
+     },
+     "skills": [
+      {
+       "code": "MAT.NUM.COUNT20",
+       "weight": 1
+      },
+      {
+       "code": "MAT.SHAPE.2D",
+       "weight": 0.5
+      }
+     ],
+     "feedback": {
+      "hints": [
+       "Touch each 🔺 once as you count."
+      ]
+     }
+    },
+    {
+     "id": "s6",
+     "type": "sequence_order",
+     "prompt": "Put the shapes in order, from no corners to the most corners.",
+     "config": {
+      "items": [
+       {
+        "id": "i1",
+        "label": "🔵 Circle (no corners)"
+       },
+       {
+        "id": "i2",
+        "label": "🔺 Triangle (3 corners)"
+       },
+       {
+        "id": "i3",
+        "label": "🟦 Square (4 corners)"
+       }
+      ]
+     },
+     "key": {
+      "correct_order": [
+       "i1",
+       "i2",
+       "i3"
+      ]
+     },
+     "scoring": {
+      "mode": "auto"
+     },
+     "skills": [
+      {
+       "code": "MAT.SHAPE.2D",
+       "weight": 1
+      }
+     ]
+    },
+    {
+     "id": "s7",
+     "type": "timer_task",
+     "prompt": "Go on a shape hunt! Look around your home.",
+     "config": {
+      "duration_sec": 300,
+      "checklist": [
+       "Find something round",
+       "Find something square",
+       "Find something shaped like a triangle"
+      ]
+     },
+     "scoring": {
+      "mode": "none"
+     }
+    },
+    {
+     "id": "s8",
+     "type": "reflection",
+     "prompt": "How was the shape hunt?",
+     "config": {
+      "emoji_options": [
+       "😊",
+       "😐",
+       "😢"
+      ]
+     },
+     "scoring": {
+      "mode": "none"
+     }
+    }
+   ]
+  },
+  {
+   "schema_version": 2,
    "slug": "balloon-catch",
    "title": "Balloon catch",
    "subject": "PHY",
