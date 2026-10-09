@@ -1,9 +1,0 @@
-from tests.test_educators import *
-
-def test_dbg(make_admin):
-    edu, admin = make_admin("educator"), make_admin("content_admin")
-    a = new_draft(edu)
-    d = valid_definition("Counting socks", a["slug"])
-    r = edu.put(f"/v1/admin/activities/{a['id']}/definition", json={"definition": d})
-    print("PUT", r.status_code, r.json().get("last_edited_at"))
-    print([ (e["action"], e["detail"]) for e in admin.get(f"/v1/admin/educators/{edu.user_id}/activity").json()["events"]])
