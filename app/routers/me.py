@@ -71,7 +71,7 @@ def set_pin(body: PinSetIn, actor: ParentActor, db: DbSession) -> Response:
     existing = db.get(ParentPin, actor.user_id)
     if existing is not None:
         if not body.current_pin:
-            raise ApiError(422, "validation_error", "current_pin is required to change the PIN.")
+            raise ApiError(409, "pin_already_set", "A parent PIN is already set. Send current_pin to change it.")
         check_pin(db, actor.user_id, body.current_pin)
         existing.pin_hash = hash_secret(body.pin)
         existing.updated_at = now()

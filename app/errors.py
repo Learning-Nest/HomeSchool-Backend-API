@@ -18,6 +18,7 @@ ERROR_CODES: dict[str, str] = {
     "guardian_verification_required": "A verified guardian is required before child data can be created.",
     "elevation_required": "Enter the parent PIN to continue.",
     "pin_not_set": "No parent PIN has been set.",
+    "pin_already_set": "A parent PIN is already set. Send current_pin to change it, or use the PIN reset.",
     "pin_locked": "The PIN is temporarily locked after too many attempts.",
     "pin_invalid": "The PIN is incorrect.",
     "otp_invalid": "The verification code is incorrect or expired.",

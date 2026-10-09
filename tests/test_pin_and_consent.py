@@ -26,7 +26,8 @@ def test_pin_is_hashed(parent, database):
 
 
 def test_changing_pin_needs_the_current_pin(parent):
-    assert parent.put("/v1/me/pin", json={"pin": "1357"}).status_code == 422
+    r = parent.put("/v1/me/pin", json={"pin": "1357"})
+    assert r.status_code == 409 and r.json()["error"]["code"] == "pin_already_set"
     assert parent.put("/v1/me/pin", json={"pin": "1357", "current_pin": "0000"}).status_code == 401
     assert parent.put("/v1/me/pin", json={"pin": "1357", "current_pin": "2468"}).status_code == 204
     assert parent.post("/v1/me/pin/verify", json={"pin": "1357"}).status_code == 200
