@@ -83,6 +83,21 @@ class Settings(BaseSettings):
     # number without ever receiving anything.
     declaration_notice_version: str = "2026-09-draft"
 
+    # Activity images (Azure Blob Storage in deployed environments; local files for development and tests)
+    storage_backend: Literal["local", "azure"] = "local"
+    storage_account_url: str | None = None  # https://<account>.blob.core.windows.net
+    storage_container: str = "activity-images"
+    azure_client_id: str | None = None  # client id of the user-assigned managed identity that owns the storage roles
+    storage_local_dir: str = ".local-assets"
+    asset_url_ttl_seconds: int = 3600  # how long a download link in an activity response stays valid
+    asset_max_upload_bytes: int = 5 * 1024 * 1024
+    asset_max_per_activity: int = 30
+    asset_max_bytes_per_activity: int = 5 * 1024 * 1024  # stored (re-encoded) bytes
+    asset_max_side_px: int = 1024
+    public_base_url: str = (
+        ""  # only for the local storage backend: prefix of download links (e.g. http://10.0.2.2:8000)
+    )
+
     # Features and client policy
     min_app_version: str = "0.1.0"
     enable_recommendations: bool = True

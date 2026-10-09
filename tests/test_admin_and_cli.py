@@ -34,7 +34,7 @@ def test_admin_stats_expose_no_family_data(make_admin, parent):
     s = make_admin().get("/v1/admin/stats").json()
     assert (
         set(s) == {"users", "families", "activities_by_status", "skills"}
-        and s["activities_by_status"]["published"] == 15
+        and s["activities_by_status"]["published"] == 16
     )
 
 
@@ -176,12 +176,14 @@ def test_cli_load_bundle_from_the_content_repo_folder():
     if not folder.exists():
         pytest.skip("content-curriculum is not checked out next to this repo")
     loaded = cli.load_bundle(str(folder))
-    assert len(loaded["activities"]) == len(BUNDLE["activities"]) and len(loaded["skills"]) == len(BUNDLE["skills"])
+    # The content repo grows past the launch seed bundle, so it must contain every seeded slug/skill (not equal them).
+    assert {a["slug"] for a in BUNDLE["activities"]} <= {a["slug"] for a in loaded["activities"]}
+    assert len(loaded["skills"]) >= len(BUNDLE["skills"])
 
 
 def test_cli_seed_is_idempotent_and_dry_run_safe(database, capsys):
     report = cli.seed_from_path(str(ROOT / "seed" / "launch-bundle.json"), auto_publish=True, dry_run=True)
-    assert report["ok"] and report["created"]["activities"] == 0 and report["unchanged"]["activities"] == 15
+    assert report["ok"] and report["created"]["activities"] == 0 and report["unchanged"]["activities"] == 16
 
 
 def test_cli_create_admin(database, client, monkeypatch):

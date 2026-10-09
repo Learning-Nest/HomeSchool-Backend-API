@@ -15,7 +15,22 @@ from app.config import get_settings
 from app.db import dispose_engine
 from app.errors import install_error_handlers
 from app.logging_setup import setup_logging
-from app.routers import admin, auth, children, curriculum, families, health, me, planned, plans, progress, scrum, sessions
+from app.routers import (
+    admin,
+    assets,
+    auth,
+    children,
+    curriculum,
+    educators,
+    families,
+    health,
+    me,
+    planned,
+    plans,
+    progress,
+    scrum,
+    sessions,
+)
 
 log = logging.getLogger("app.access")
 API_VERSION = "0.1.0"
@@ -104,6 +119,21 @@ def create_app() -> FastAPI:
         response.headers["Access-Control-Max-Age"] = "600"
         return response
 
-    for module in (health, auth, me, families, children, curriculum, plans, sessions, progress, admin, planned, scrum):
+    for module in (
+        health,
+        auth,
+        me,
+        families,
+        children,
+        curriculum,
+        plans,
+        sessions,
+        progress,
+        admin,
+        educators,
+        assets,
+        planned,
+        scrum,
+    ):
         app.include_router(module.router)
     return app

@@ -337,12 +337,14 @@ def test_a_v1_and_a_v2_activity_live_side_by_side(make_admin, parent, activities
 
 # Exercises added on purpose after the migration (the migration itself adds none).
 ADDED_AFTER_MIGRATION = {"weather-diary": {"s4"}}
+# Whole activities written after the migration (they have no v1 original to compare with).
+NEW_ACTIVITIES_AFTER_MIGRATION = {"shape-hunt"}
 
 
 def test_the_migrated_launch_set_is_wire_identical_and_scores_the_same_as_v1():
     """The content migration must not change what the app receives or how an answer is scored."""
-    assert set(DEFS) == set(V1_DEFS)
-    for slug, new in DEFS.items():
+    assert set(DEFS) - NEW_ACTIVITIES_AFTER_MIGRATION == set(V1_DEFS)
+    for slug, new in ((k, v) for k, v in DEFS.items() if k in V1_DEFS):
         old = V1_DEFS[slug]
         assert new["schema_version"] == 2 and content.validate_activity(new, KNOWN) == [], slug
         added = ADDED_AFTER_MIGRATION.get(slug, set())

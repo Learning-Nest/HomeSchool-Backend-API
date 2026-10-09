@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models import AuditLog, OutboxEvent
+from app.models import ActivityEvent, AuditLog, OutboxEvent
 
 
 def audit(
@@ -42,5 +42,54 @@ def emit(db: Session, event_type: str, payload: dict[str, Any], aggregate_id: An
     db.add(
         OutboxEvent(
             event_type=event_type, aggregate_id=str(aggregate_id) if aggregate_id is not None else None, payload=clean
+        )
+    )
+
+
+def record_activity_event(
+    db: Session,
+    activity,
+    actor_id: uuid.UUID | None,
+    action: str,
+    *,
+    status_from: str | None = None,
+    status_to: str | None = None,
+    coalesce_minutes: int = 0,
+    **detail: Any,
+) -> None:
+    """Append a row to content.activity_events. Repeated 'edited' saves by the same person within `coalesce_minutes`
+    are folded into one row (a counter) so autosave does not flood the log."""
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from app.security import now
+
+    if coalesce_minutes and actor_id is not None:
+        last = db.scalar(
+            select(ActivityEvent)
+            .where(ActivityEvent.activity_id == activity.id)
+            .order_by(ActivityEvent.at.desc())
+            .limit(1)
+        )
+        if (
+            last is not None
+            and last.actor_id == actor_id
+            and last.action == action
+            and last.at >= now() - timedelta(minutes=coalesce_minutes)
+        ):
+            last.at = now()
+            last.version = activity.version
+            last.detail = {**(last.detail or {}), **detail, "saves": int((last.detail or {}).get("saves", 1)) + 1}
+            return
+    db.add(
+        ActivityEvent(
+            activity_id=activity.id,
+            actor_id=actor_id,
+            action=action,
+            version=activity.version,
+            status_from=status_from,
+            status_to=status_to,
+            detail=detail,
         )
     )

@@ -22,11 +22,11 @@ from app.services.content import (
     is_scored,
     needs_parent_review,
     normalize,
-    public_definition,
     score_step,
     step_skill_weights,
 )
 from app.services.events import audit, emit
+from app.services.images import wire_definition
 from app.services.progress import add_evidence, recompute_mastery
 
 router = APIRouter(prefix="/v1/sessions", tags=["sessions"])
@@ -52,7 +52,7 @@ def _out(db, s: ActivitySession) -> SessionOut:
         id=s.id,
         child_id=s.child_id,
         activity=ActivitySummary.model_validate(a),
-        activity_definition=public_definition(_definition(db, s)),
+        activity_definition=wire_definition(db, _definition(db, s)),
         status=s.status,
         answers=s.answers,
         hints_used=s.hints_used,

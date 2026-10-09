@@ -215,6 +215,52 @@ class Activity(Base):
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = _now()
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Authorship and review (plain uuids, no foreign keys: see migration 0004). source: bundle | educator | admin.
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    last_edited_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    last_edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    submitted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_note: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(Text, default="bundle", server_default="bundle")
+    last_validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    validated_hash: Mapped[str | None] = mapped_column(Text)
+
+
+class ActivityEvent(Base):
+    """Append-only log of what people did to an activity (feeds the admin 'who did what' views)."""
+
+    __tablename__ = "activity_events"
+    __table_args__ = {"schema": "content"}
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    activity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("content.activities.id", ondelete="CASCADE"))
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    action: Mapped[str] = mapped_column(Text)
+    at: Mapped[datetime] = _now()
+    version: Mapped[int | None] = mapped_column(Integer)
+    status_from: Mapped[str | None] = mapped_column(Text)
+    status_to: Mapped[str | None] = mapped_column(Text)
+    detail: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
+
+
+class Asset(Base):
+    """An uploaded, re-encoded image. The activity definition refers to it by id; the bytes live in blob storage."""
+
+    __tablename__ = "assets"
+    __table_args__ = {"schema": "content"}
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    activity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("content.activities.id", ondelete="CASCADE"))
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    blob_path: Mapped[str] = mapped_column(Text)
+    content_type: Mapped[str] = mapped_column(Text)
+    bytes: Mapped[int] = mapped_column(Integer)
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = _now()
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ActivityVersion(Base):
@@ -369,8 +415,6 @@ class ScrumTask(Base):
     assignee_name: Mapped[str | None] = mapped_column(Text)
     sprint: Mapped[str | None] = mapped_column(Text)
     position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
-    created_by_member_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("scrum_members.id", ondelete="SET NULL")
-    )
+    created_by_member_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("scrum_members.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = _now()

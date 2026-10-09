@@ -103,3 +103,17 @@ def send_temp_password(to: str, full_name: str, temp_password: str, valid_minute
         "If you did not ask for this, you can ignore this email - nobody can use the temporary password "
         "without it, and your account is unchanged.\n",
     )
+
+
+def send_educator_invite(to: str, full_name: str, temp_password: str, valid_days: int) -> None:
+    brand = get_settings().email_brand
+    send_email(
+        to,
+        f"Your {brand} educator account",
+        f"Hello {full_name},\n\n"
+        f"An educator account has been created for you on {brand}. Your temporary password is:\n\n"
+        f"    {temp_password}\n\n"
+        f"Sign in with your email address and this password within {valid_days} days; you will be asked to choose "
+        "a new password straight away.\n\n"
+        "If you were not expecting this, you can ignore this email.\n",
+    )

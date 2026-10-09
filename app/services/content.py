@@ -387,9 +387,9 @@ def public_definition(definition: dict[str, Any]) -> dict[str, Any]:
         w: dict[str, Any] = {"id": s["id"], "type": s["type"]}
         if "prompt" in s:
             w["text" if s["type"] == "instruction" else "prompt"] = s["prompt"]
-        for k in ("audio_ref", "media_ref"):
+        for k in ("audio_ref", "media_ref", "image"):
             if k in s:
-                w[k] = s[k]
+                w[k] = json.loads(json.dumps(s[k]))
         w.update(json.loads(json.dumps(s.get("config", {}))))
         hints = (s.get("feedback") or {}).get("hints") or []
         if hints:

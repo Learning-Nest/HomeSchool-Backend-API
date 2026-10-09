@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.homeschooling.invalid/activity-content.v2.schema.json",
   "title": "Activity content, format version 2",
-  "description": "Editable activity format. Every exercise (step) owns its skills; answer keys live only in each step's `key`; what the child sees lives in `config`. The top-level `skills` list is derived from the exercises and rewritten by the server on every save. See docs/activity-format-v2.md.",
+  "description": "Editable activity format. Every exercise (step) owns its skills; answer keys live only in each step's `key`; what the child sees lives in `config`. The top-level `skills` list is derived from the exercises and rewritten by the server on every save. See docs/activity-format-v2.md. Images (format 2, additive): a step, an option, a match item or a sequence item may carry `image` = {asset, alt}; see docs/activity-format-v2.md.",
   "type": "object",
   "required": [
     "schema_version",
@@ -230,6 +230,28 @@
                 "additionalProperties": false,
                 "properties": {},
                 "description": "What the child sees and how the exercise is laid out. Sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           },
@@ -367,6 +389,28 @@
                   "alt_text"
                 ],
                 "description": "What the child sees and how the exercise is laid out. Sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           },
@@ -516,6 +560,28 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "image": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "asset",
+                            "alt"
+                          ],
+                          "properties": {
+                            "asset": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                              "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                            },
+                            "alt": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200,
+                              "description": "What the picture shows, for screen readers."
+                            }
+                          },
+                          "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
                         }
                       }
                     },
@@ -545,6 +611,28 @@
                   "correct"
                 ],
                 "description": "The answer key. NEVER sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           },
@@ -694,6 +782,28 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "image": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "asset",
+                            "alt"
+                          ],
+                          "properties": {
+                            "asset": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                              "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                            },
+                            "alt": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200,
+                              "description": "What the picture shows, for screen readers."
+                            }
+                          },
+                          "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
                         }
                       }
                     },
@@ -723,6 +833,28 @@
                   "correct"
                 ],
                 "description": "The answer key. NEVER sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           },
@@ -865,6 +997,28 @@
                   "answer"
                 ],
                 "description": "The answer key. NEVER sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           },
@@ -1009,6 +1163,28 @@
                   }
                 },
                 "description": "The answer key. NEVER sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           },
@@ -1158,6 +1334,28 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "image": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "asset",
+                            "alt"
+                          ],
+                          "properties": {
+                            "asset": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                              "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                            },
+                            "alt": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200,
+                              "description": "What the picture shows, for screen readers."
+                            }
+                          },
+                          "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
                         }
                       }
                     },
@@ -1187,6 +1385,28 @@
                   "correct_order"
                 ],
                 "description": "The answer key. NEVER sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           },
@@ -1336,6 +1556,28 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "image": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "asset",
+                            "alt"
+                          ],
+                          "properties": {
+                            "asset": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                              "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                            },
+                            "alt": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200,
+                              "description": "What the picture shows, for screen readers."
+                            }
+                          },
+                          "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
                         }
                       }
                     },
@@ -1366,6 +1608,28 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "image": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "asset",
+                            "alt"
+                          ],
+                          "properties": {
+                            "asset": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                              "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                            },
+                            "alt": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200,
+                              "description": "What the picture shows, for screen readers."
+                            }
+                          },
+                          "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
                         }
                       }
                     },
@@ -1401,6 +1665,28 @@
                   "pairs"
                 ],
                 "description": "The answer key. NEVER sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           },
@@ -1538,6 +1824,28 @@
                   "max_seconds"
                 ],
                 "description": "What the child sees and how the exercise is laid out. Sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           },
@@ -1669,6 +1977,28 @@
                   }
                 },
                 "description": "What the child sees and how the exercise is laid out. Sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           },
@@ -1809,6 +2139,28 @@
                   "duration_sec"
                 ],
                 "description": "What the child sees and how the exercise is laid out. Sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           },
@@ -1945,6 +2297,28 @@
                   }
                 },
                 "description": "What the child sees and how the exercise is laid out. Sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           },
@@ -2083,6 +2457,28 @@
                   "emoji_options"
                 ],
                 "description": "What the child sees and how the exercise is laid out. Sent to the app."
+              },
+              "image": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset",
+                  "alt"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "description": "Id of an uploaded image (content.assets). Upload it in the editor first."
+                  },
+                  "alt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "What the picture shows, for screen readers."
+                  }
+                },
+                "description": "A picture. The app downloads it when the activity loads; the text label stays as the fallback."
               }
             }
           }

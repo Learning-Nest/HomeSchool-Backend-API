@@ -24,6 +24,8 @@ TEST_ENV = {
     "EMAIL_PROVIDER": "console",  # a developer's .env.local must never make the test suite send real email
     "LOG_LEVEL": "WARNING",
     "LOG_JSON": "false",
+    "STORAGE_BACKEND": "local",
+    "STORAGE_LOCAL_DIR": tempfile.mkdtemp(prefix="hs-assets-"),
 }
 
 
@@ -78,7 +80,7 @@ def _content_is_pristine(conn) -> bool:
         text("""select (select count(*) from content.activities), (select coalesce(max(version), 1) from content.activities),
                                       (select count(*) from content.skills), (select count(*) from content.activities where status <> 'published')""")
     ).one()
-    return tuple(row) == (15, 1, 51, 0)
+    return tuple(row) == (16, 1, 51, 0)
 
 
 @pytest.fixture(autouse=True)

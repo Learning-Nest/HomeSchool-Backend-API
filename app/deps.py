@@ -44,6 +44,10 @@ class Actor:
     def is_parent(self) -> bool:
         return self.kind == "parent"
 
+    @property
+    def is_content_admin(self) -> bool:
+        return self.platform_role in ("content_admin", "super_admin")
+
 
 def get_actor(
     request: Request, db: DbSession, creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)]
@@ -106,6 +110,29 @@ def require_platform_admin(actor: ParentActor) -> Actor:
 
 
 AdminActor = Annotated[Actor, Depends(require_platform_admin)]
+
+# Platform roles. `educator` writes drafts and submits them; the two admin roles also review and publish.
+# (Not to be confused with the FAMILY role "educator" in family_memberships.)
+ADMIN_ROLES = ("content_admin", "super_admin")
+STAFF_ROLES = ("educator", *ADMIN_ROLES)
+
+
+def require_content_staff(actor: ParentActor) -> Actor:
+    if actor.platform_role not in STAFF_ROLES:
+        raise forbidden("Content staff access is required.")
+    return actor
+
+
+StaffActor = Annotated[Actor, Depends(require_content_staff)]
+
+
+def require_super_admin(actor: ParentActor) -> Actor:
+    if actor.platform_role != "super_admin":
+        raise forbidden("Super admin access is required.")
+    return actor
+
+
+SuperAdminActor = Annotated[Actor, Depends(require_super_admin)]
 
 
 def membership(db: Session, actor: Actor, family_id: uuid.UUID, roles: set[str] = ALL_ROLES) -> FamilyMembership:

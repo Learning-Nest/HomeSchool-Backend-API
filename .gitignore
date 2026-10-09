@@ -14,3 +14,6 @@ dist/
 # a developer's own venv
 .venv/
 venv/
+
+# local image storage used by development runs
+.local-assets/

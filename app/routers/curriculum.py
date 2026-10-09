@@ -22,7 +22,7 @@ from app.models import (
 )
 from app.schemas import ActivityDetail, ActivitySummary, LevelOut, LibraryActivity, SkillOut, SubjectOut
 from app.security import now
-from app.services.content import public_definition
+from app.services.images import wire_definition
 from app.services.progress import family_tz
 
 router = APIRouter(prefix="/v1", tags=["curriculum"])
@@ -177,5 +177,5 @@ def get_activity(activity_id: uuid.UUID, actor: CurrentActor, db: DbSession) -> 
         raise not_found()
     codes = sorted(db.scalars(select(ActivitySkill.skill_code).where(ActivitySkill.activity_id == a.id)))
     return ActivityDetail(
-        **ActivitySummary.model_validate(a).model_dump(), skills=codes, definition=public_definition(a.definition)
+        **ActivitySummary.model_validate(a).model_dump(), skills=codes, definition=wire_definition(db, a.definition)
     )

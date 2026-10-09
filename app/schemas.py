@@ -385,6 +385,21 @@ class DashboardOut(BaseModel):
 class AdminActivitySummary(ActivitySummary):
     status: str
     updated_at: datetime
+    # Authorship and review. *_name fields are filled by the router (display names are not columns of activities).
+    source: str = "bundle"
+    created_at: datetime | None = None
+    created_by: uuid.UUID | None = None
+    created_by_name: str | None = None
+    last_edited_by: uuid.UUID | None = None
+    last_edited_by_name: str | None = None
+    last_edited_at: datetime | None = None
+    submitted_at: datetime | None = None
+    reviewed_by: uuid.UUID | None = None
+    reviewed_by_name: str | None = None
+    reviewed_at: datetime | None = None
+    review_note: str | None = None
+    last_validated_at: datetime | None = None
+    is_validated: bool = False  # the current content passed validation (any later edit clears it)
 
 
 class AdminActivityDetail(AdminActivitySummary):
@@ -402,6 +417,7 @@ class AdminStats(BaseModel):
 # ---------------------------------------------------------------------------- admin
 class AdminStatusIn(BaseModel):
     status: Literal["draft", "in_review", "published", "archived"]
+    note: str | None = Field(default=None, max_length=1000)  # why an activity was returned for changes
 
 
 class AdminDefinitionIn(BaseModel):
@@ -509,3 +525,96 @@ class ScrumTaskOut(Out):
     created_by_member_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
+
+
+# ---------------------------------------------------------------------------- educators, validation, images
+class StaffMeOut(BaseModel):
+    user_id: uuid.UUID
+    email: str
+    full_name: str
+    platform_role: str
+    capabilities: list[str]
+
+
+class ActivityDraftIn(BaseModel):
+    definition: dict[str, Any]
+
+
+class ValidateIn(BaseModel):
+    definition: dict[str, Any]
+    activity_id: uuid.UUID | None = None  # lets the check confirm the activity's own images exist
+
+
+class ProblemOut(BaseModel):
+    step: str | None = None  # the exercise id the message is about, when it names one
+    message: str
+
+
+class ValidationOut(BaseModel):
+    ok: bool
+    problems: list[ProblemOut]
+    validated_at: datetime | None = None  # set when the result was recorded on a saved activity
+
+
+class AssetOut(Out):
+    id: uuid.UUID
+    activity_id: uuid.UUID
+    content_type: str
+    bytes: int
+    width: int
+    height: int
+    sha256: str
+    created_at: datetime
+    url: str | None = None  # short-lived preview link
+
+
+class EducatorOut(BaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: str
+    active: bool
+    platform_role: str
+    created_at: datetime
+    activities: int
+    drafts: int
+    in_review: int
+    published: int
+    submissions: int
+    returned: int
+    last_active_at: datetime | None
+
+
+class EducatorCreateIn(BaseModel):
+    email: EmailStr
+    full_name: str = Field(min_length=1, max_length=120)
+
+
+class EducatorCreateOut(BaseModel):
+    educator: EducatorOut
+    existing_account: bool  # true when a parent account was upgraded (its password is unchanged)
+    email_sent: bool
+
+
+class EducatorPatchIn(BaseModel):
+    active: bool
+
+
+class ActivityEventOut(BaseModel):
+    id: uuid.UUID
+    at: datetime
+    action: str
+    actor_id: uuid.UUID | None
+    actor_name: str | None
+    activity_id: uuid.UUID
+    activity_slug: str
+    activity_title: str
+    version: int | None
+    status_from: str | None
+    status_to: str | None
+    detail: dict[str, Any]
+
+
+class EducatorActivityOut(BaseModel):
+    educator: EducatorOut
+    activities: list[AdminActivitySummary]
+    events: list[ActivityEventOut]

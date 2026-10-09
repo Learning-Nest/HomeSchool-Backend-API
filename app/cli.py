@@ -3,7 +3,7 @@
 migrate            apply database migrations (alembic upgrade head)
 ensure-app-role    create/refresh the least-privilege database role the API connects as (needs admin DB credentials)
 seed               import curriculum + activities from a bundle file or the content-curriculum folder
-create-admin       create or promote a platform admin (content_admin | super_admin)
+create-admin       create or promote a platform user (educator | content_admin | super_admin)
 release            migrate + ensure-app-role (when APP_DB_PASSWORD is set) + seed (when SEED_BUNDLE_PATH is set)
 """
 
@@ -73,6 +73,7 @@ def ensure_app_role(role: str, password: str) -> None:
             "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public, content TO {r}",
             "REVOKE ALL ON alembic_version FROM {r}",
             "REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM {r}",
+            "REVOKE DELETE, TRUNCATE ON content.activity_events FROM {r}",
             "ALTER DEFAULT PRIVILEGES IN SCHEMA public, content GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {r}",
         ]
         for st in stmts:
@@ -151,7 +152,7 @@ def main(argv: list[str] | None = None) -> None:
     a = sub.add_parser("create-admin")
     a.add_argument("--email", required=True)
     a.add_argument("--name", required=True)
-    a.add_argument("--role", choices=["content_admin", "super_admin"], default="content_admin")
+    a.add_argument("--role", choices=["educator", "content_admin", "super_admin"], default="content_admin")
     sub.add_parser("release")
     args = ap.parse_args(argv)
 

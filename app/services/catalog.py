@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import re
+import uuid
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -22,6 +26,7 @@ from app.models import (
 from app.schemas import BundleIn, BundleReport
 from app.security import now
 from app.services.content import finalize, validate_activity
+from app.services.images import asset_problems
 
 ENTITIES = ("levels", "subjects", "interests", "skills", "activities")
 
@@ -62,9 +67,22 @@ def apply_definition(a: Activity, d: dict[str, Any]) -> None:
     a.updated_at = now()
 
 
+def definition_hash(definition: dict[str, Any]) -> str:
+    """Stable fingerprint of a definition: 'validated' means this exact content passed validation."""
+    return hashlib.sha256(json.dumps(definition, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def validate_full(db: Session, definition: dict[str, Any], activity_id: uuid.UUID | None = None) -> list[str]:
+    """Every check an activity must pass before review or publishing: schema, rules, live taxonomy and its images."""
+    problems = validate_activity(definition, known_skill_codes(db), level_order(db))
+    if not problems:
+        problems += asset_problems(db, definition, activity_id)
+    return problems
+
+
 def publish(db: Session, a: Activity) -> None:
     """Validates against the live taxonomy, then marks the activity published and snapshots its version."""
-    problems = validate_activity(a.definition, known_skill_codes(db), level_order(db))
+    problems = validate_full(db, a.definition, a.id)
     if problems:
         raise ApiError(422, "content_invalid", "The activity cannot be published.", {"problems": problems})
     a.status = "published"
@@ -72,8 +90,68 @@ def publish(db: Session, a: Activity) -> None:
     snapshot(db, a)
 
 
-def update_definition(db: Session, a: Activity, definition: dict[str, Any]) -> None:
-    """Replace the definition. Slug is immutable. A published activity gets a new version (old sessions keep the old one)."""
+_SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+
+def slugify(title: str) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60].strip("-")
+    return base or "activity"
+
+
+def unique_slug(db: Session, wanted: str) -> str:
+    slug, n = wanted, 1
+    while db.scalar(select(Activity.id).where(Activity.slug == slug)) is not None:
+        n += 1
+        slug = f"{wanted[: 76 - len(str(n))]}-{n}"
+    return slug
+
+
+def _lenient_check(db: Session, d: dict[str, Any]) -> None:
+    """The minimum a DRAFT needs to be stored at all (the columns that must be filled). Everything else is checked by
+    the Validate step, so an educator can save half-finished work."""
+    problems: list[str] = []
+    title = d.get("title")
+    if not isinstance(title, str) or not title.strip() or len(title) > 120:
+        problems.append("title: required, up to 120 characters")
+    if d.get("subject") not in set(db.scalars(select(Subject.code))):
+        problems.append("subject: choose a subject")
+    levels = level_order(db)
+    for f in ("level_from", "level_to"):
+        if d.get(f) not in levels:
+            problems.append(f"{f}: choose a level")
+    dur = d.get("duration_min")
+    if not isinstance(dur, int) or isinstance(dur, bool) or not 1 <= dur <= 180:
+        problems.append("duration_min: a whole number from 1 to 180")
+    steps = d.get("steps")
+    if not isinstance(steps, list) or not all(
+        isinstance(s, dict) and isinstance(s.get("id"), str) and isinstance(s.get("type"), str) for s in steps
+    ):
+        problems.append("steps: must be a list of exercises that each have an id and a type")
+    for f in ("materials", "interests"):
+        if f in d and not (isinstance(d[f], list) and all(isinstance(x, str) for x in d[f])):
+            problems.append(f"{f}: must be a list of text")
+    if problems:
+        raise ApiError(422, "content_invalid", "The draft cannot be saved yet.", {"problems": problems})
+
+
+def _lenient_finalize(d: dict[str, Any]) -> dict[str, Any]:
+    d = json.loads(json.dumps(d))
+    d["schema_version"] = 2
+    try:
+        d = finalize(d)
+    except Exception:  # half-built exercises: keep what the author sent
+        d.setdefault("skills", [])
+    d.setdefault("skills", [])
+    return d
+
+
+def update_definition(
+    db: Session, a: Activity, definition: dict[str, Any], *, editor_id: uuid.UUID | None = None, strict: bool = True
+) -> bool:
+    """Replace the definition. Slug is immutable. A published activity gets a new version (old sessions keep the old one).
+
+    strict=True (default) requires a fully valid activity. strict=False is for drafts only: the minimum needed to store
+    it. Returns True when something changed."""
     if definition.get("slug") != a.slug:
         raise ApiError(
             422,
@@ -81,17 +159,59 @@ def update_definition(db: Session, a: Activity, definition: dict[str, Any]) -> N
             "The slug cannot be changed.",
             {"problems": ["slug: must equal the activity's slug"]},
         )
-    definition = finalize(definition)  # v2: the top-level skills are derived from the exercises
-    problems = validate_activity(definition, known_skill_codes(db), level_order(db))
-    if problems:
-        raise ApiError(422, "content_invalid", "The activity failed validation.", {"problems": problems})
+    if strict:
+        definition = finalize(definition)  # v2: the top-level skills are derived from the exercises
+        problems = validate_full(db, definition, a.id)
+        if problems:
+            raise ApiError(422, "content_invalid", "The activity failed validation.", {"problems": problems})
+    else:
+        if a.status != "draft":
+            raise ApiError(409, "activity_locked", "Only a draft can be saved without full validation.")
+        _lenient_check(db, definition)
+        definition = _lenient_finalize(definition)
     if definition == a.definition:
-        return
+        return False
     apply_definition(a, definition)
-    sync_activity_skills(db, a, definition["skills"])
+    known = known_skill_codes(db)
+    sync_activity_skills(db, a, [c for c in definition.get("skills", []) if isinstance(c, str) and c in known])
+    if editor_id is not None:
+        a.last_edited_by, a.last_edited_at = editor_id, now()
     if a.status == "published":
         a.version += 1
         snapshot(db, a)
+    return True
+
+
+def create_activity(db: Session, definition: dict[str, Any], creator_id: uuid.UUID, source: str) -> Activity:
+    """A new DRAFT written by a person. The slug is made from the title when the author did not pick one."""
+    d = json.loads(json.dumps(definition))
+    wanted = d.get("slug") if isinstance(d.get("slug"), str) and _SLUG_RE.match(d["slug"]) else None
+    if wanted is None:
+        wanted = slugify(d.get("title") if isinstance(d.get("title"), str) else "")
+    d["slug"] = unique_slug(db, wanted)
+    _lenient_check(db, d)
+    d = _lenient_finalize(d)
+    a = Activity(
+        slug=d["slug"],
+        title=d["title"],
+        subject_code=d["subject"],
+        level_from=d["level_from"],
+        level_to=d["level_to"],
+        duration_min=d["duration_min"],
+        definition=d,
+        status="draft",
+        version=1,
+        created_by=creator_id,
+        last_edited_by=creator_id,
+        last_edited_at=now(),
+        source=source,
+    )
+    apply_definition(a, d)
+    db.add(a)
+    db.flush()
+    known = known_skill_codes(db)
+    sync_activity_skills(db, a, [c for c in d.get("skills", []) if isinstance(c, str) and c in known])
+    return a
 
 
 # ------------------------------------------------------------------------------------------------ bundle import
@@ -140,6 +260,9 @@ def _check_taxonomy(bundle: BundleIn, db: Session) -> tuple[list[str], set[str],
         visit(n, [])
     for a in bundle.activities:
         for p in validate_activity(finalize(a), skills, levels):
+            problems.append(f"activity {a.get('slug')}: {p}")
+        existing = db.scalar(select(Activity.id).where(Activity.slug == a.get("slug")))
+        for p in asset_problems(db, a, existing):
             problems.append(f"activity {a.get('slug')}: {p}")
         if a.get("subject") not in subjects:
             problems.append(f"activity {a.get('slug')}: unknown subject {a.get('subject')!r}")
