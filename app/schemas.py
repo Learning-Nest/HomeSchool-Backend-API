@@ -582,6 +582,8 @@ class EducatorOut(BaseModel):
     submissions: int
     returned: int
     last_active_at: datetime | None
+    # true until the person has signed in with a password of their own (a never-used invitation can be resent)
+    invite_pending: bool = False
 
 
 class EducatorCreateIn(BaseModel):
@@ -592,6 +594,11 @@ class EducatorCreateIn(BaseModel):
 class EducatorCreateOut(BaseModel):
     educator: EducatorOut
     existing_account: bool  # true when a parent account was upgraded (its password is unchanged)
+    email_sent: bool
+
+
+class EducatorInviteOut(BaseModel):
+    educator: EducatorOut
     email_sent: bool
 
 

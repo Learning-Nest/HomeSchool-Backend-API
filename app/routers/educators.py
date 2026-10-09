@@ -15,13 +15,15 @@ from sqlalchemy import func, select, update
 
 from app.deps import AdminActor, DbSession, SuperAdminActor
 from app.errors import ApiError, not_found
-from app.models import Activity, ActivityEvent, RefreshToken, User
+from app import ratelimit
+from app.models import Activity, ActivityEvent, AuditLog, RefreshToken, User
 from app.routers.admin import summaries
 from app.schemas import (
     ActivityEventOut,
     EducatorActivityOut,
     EducatorCreateIn,
     EducatorCreateOut,
+    EducatorInviteOut,
     EducatorOut,
     EducatorPatchIn,
 )
@@ -68,6 +70,18 @@ def educator_outs(db, users: list[User]) -> list[EducatorOut]:
             .group_by(ActivityEvent.actor_id)
         ).all()
     )
+    # Someone "has signed in" once they used a password of their own: a normal sign-in, a password change, or a
+    # sign-up (accounts upgraded from parent). Signing in with only the emailed temporary password does not count.
+    signed_in = set(
+        db.scalars(
+            select(AuditLog.actor_user_id)
+            .where(
+                AuditLog.actor_user_id.in_(ids),
+                AuditLog.action.in_(("user.login", "auth.password_changed", "user.signup")),
+            )
+            .distinct()
+        )
+    )
     out = []
     for u in users:
         c = counts.get(u.id, {})
@@ -86,6 +100,7 @@ def educator_outs(db, users: list[User]) -> list[EducatorOut]:
                 submissions=submissions.get(u.id, 0),
                 returned=returned.get(u.id, 0),
                 last_active_at=last.get(u.id),
+                invite_pending=u.id not in signed_in,
             )
         )
     return out
@@ -254,6 +269,37 @@ def create_educator(body: EducatorCreateIn, actor: SuperAdminActor, db: DbSessio
         request_id=actor.request_id,
     )
     return EducatorCreateOut(educator=educator_outs(db, [user])[0], existing_account=existing, email_sent=sent)
+
+
+@router.post("/educators/{educator_id}/invite", response_model=EducatorInviteOut)
+def resend_invitation(educator_id: uuid.UUID, actor: SuperAdminActor, db: DbSession) -> EducatorInviteOut:
+    """Issues a fresh temporary password (valid INVITE_VALID_DAYS) and emails it to an educator who has never signed
+    in with a password of their own. The earlier temporary password stops working. The password is never returned."""
+    u = _educator(db, educator_id)
+    if u.status != "active":
+        raise ApiError(409, "conflict", "This educator is disabled. Re-enable them before sending an invitation.")
+    if not educator_outs(db, [u])[0].invite_pending:
+        raise ApiError(409, "conflict", "This educator has already signed in. They can use \u201cForgot password\u201d.")
+    ratelimit.check(f"invite:{u.id}", 5, 3600)
+    temp = new_temp_password()
+    u.reset_hash = hash_secret(temp)
+    u.reset_expires_at = now() + timedelta(days=INVITE_VALID_DAYS)
+    u.updated_at = now()
+    try:
+        email_service.send_educator_invite(u.email, u.full_name, temp, INVITE_VALID_DAYS)
+        sent = True
+    except ApiError:
+        sent = False
+    audit(
+        db,
+        "educator.invite_resent",
+        actor_user_id=actor.user_id,
+        entity="user",
+        entity_id=u.id,
+        email_sent=sent,
+        request_id=actor.request_id,
+    )
+    return EducatorInviteOut(educator=educator_outs(db, [u])[0], email_sent=sent)
 
 
 @router.patch("/educators/{educator_id}", response_model=EducatorOut)

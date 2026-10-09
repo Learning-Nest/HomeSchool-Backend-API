@@ -5,6 +5,7 @@ import uuid
 
 from sqlalchemy import text
 
+from app.errors import ApiError
 from app.services import email as email_service
 from tests.helpers import DEFS
 
@@ -238,3 +239,86 @@ def test_events_survive_when_users_are_removed(database, make_admin):
     with database["admin"].begin() as conn:
         n = conn.execute(text("select count(*) from content.activities where id = :i"), {"i": a["id"]}).scalar()
     assert n == 1  # no foreign keys from content to users
+
+
+# ------------------------------------------------------------------------------------------------ resend invitation
+def _invite(boss, email):
+    email_service.OUTBOX.clear()
+    r = boss.post("/v1/admin/educators", json={"email": email, "full_name": "Nia Teacher"})
+    assert r.status_code == 201, r.text
+    return r.json()["educator"]
+
+
+def _temp_from_outbox():
+    return email_service.OUTBOX[-1].body.split("    ")[1].split("\n")[0].strip()
+
+
+def test_resend_invitation_replaces_the_temporary_password(client, make_admin):
+    boss = make_admin("super_admin")
+    email = f"resend-{uuid.uuid4().hex[:6]}@example.com"
+    edu = _invite(boss, email)
+    assert edu["invite_pending"] is True
+    first = _temp_from_outbox()
+    r = boss.post(f"/v1/admin/educators/{edu['id']}/invite")
+    assert r.status_code == 200 and r.json()["email_sent"] is True
+    assert r.json()["educator"]["id"] == edu["id"]
+    second = _temp_from_outbox()
+    assert second != first and len(email_service.OUTBOX) == 2
+    assert second not in r.text and first not in r.text  # the password is only ever emailed
+    assert client.post("/v1/auth/login", json={"email": email, "password": first}).status_code == 401
+    assert client.post("/v1/auth/login", json={"email": email, "password": second}).json()["temp_login"] is True
+
+
+def test_resend_invitation_reports_a_failed_email_and_can_be_retried(make_admin, monkeypatch):
+    boss = make_admin("super_admin")
+    edu = _invite(boss, f"fail-{uuid.uuid4().hex[:6]}@example.com")
+
+    def broken(*a, **k):
+        raise ApiError(503, "delivery_failed")
+
+    monkeypatch.setattr(email_service, "send_educator_invite", broken)
+    r = boss.post(f"/v1/admin/educators/{edu['id']}/invite")
+    assert r.status_code == 200 and r.json()["email_sent"] is False
+    monkeypatch.undo()
+    email_service.OUTBOX.clear()
+    assert boss.post(f"/v1/admin/educators/{edu['id']}/invite").json()["email_sent"] is True
+
+
+def test_resend_invitation_is_only_for_people_who_have_not_signed_in(client, make_admin, parent):
+    boss = make_admin("super_admin")
+    email = f"done-{uuid.uuid4().hex[:6]}@example.com"
+    edu = _invite(boss, email)
+    temp = _temp_from_outbox()
+    # signing in with only the temporary password does not count as having signed in
+    tok = client.post("/v1/auth/login", json={"email": email, "password": temp}).json()
+    assert boss.post(f"/v1/admin/educators/{edu['id']}/invite").status_code == 200
+    temp = _temp_from_outbox()
+    tok = client.post("/v1/auth/login", json={"email": email, "password": temp}).json()
+    ch = client.post(
+        "/v1/auth/change-password",
+        json={"current_password": temp, "new_password": "A-brand-new-pass-9"},
+        headers={"Authorization": f"Bearer {tok['access_token']}"},
+    )
+    assert ch.status_code == 200, ch.text
+    r = boss.post(f"/v1/admin/educators/{edu['id']}/invite")
+    assert r.status_code == 409
+    listed = {e["id"]: e for e in boss.get("/v1/admin/educators").json()}
+    assert listed[edu["id"]]["invite_pending"] is False
+    # an upgraded parent account has signed up, so it is not pending either
+    up = boss.post("/v1/admin/educators", json={"email": parent.email, "full_name": "Parent"}).json()["educator"]
+    assert up["invite_pending"] is False
+    assert boss.post(f"/v1/admin/educators/{up['id']}/invite").status_code == 409
+
+
+def test_resend_invitation_needs_a_super_admin_an_active_educator_and_is_rate_limited(make_admin):
+    boss = make_admin("super_admin")
+    edu = _invite(boss, f"rl-{uuid.uuid4().hex[:6]}@example.com")
+    url = f"/v1/admin/educators/{edu['id']}/invite"
+    assert make_admin("educator").post(url).status_code == 403
+    assert make_admin("content_admin").post(url).status_code == 403
+    assert boss.post(f"/v1/admin/educators/{uuid.uuid4()}/invite").status_code == 404
+    assert boss.patch(f"/v1/admin/educators/{edu['id']}", json={"active": False}).status_code == 200
+    assert boss.post(url).status_code == 409
+    boss.patch(f"/v1/admin/educators/{edu['id']}", json={"active": True})
+    codes = [boss.post(url).status_code for _ in range(6)]
+    assert codes[:5] == [200] * 5 and codes[5] == 429
