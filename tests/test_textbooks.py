@@ -282,3 +282,26 @@ def test_educator_places_only_their_own_drafts_in_lessons(loaded, make_admin):
     assert edu.post(f"/v1/admin/activities/{b['id']}/submit").status_code == 200
     locked = edu.put(f"/v1/admin/activities/{b['id']}/lessons", json=body)
     assert locked.status_code == 409 and locked.json()["error"]["code"] == "activity_locked"
+
+
+
+def test_migration_seeds_cbse_and_icse_and_is_safe_to_repeat(database):
+    """0006 gives the pickers their first boards; running it again (or importing the same boards) changes nothing."""
+    import importlib.util
+    from pathlib import Path
+
+    from sqlalchemy import text
+
+    path = Path(__file__).resolve().parent.parent / "migrations" / "versions" / "0006_seed_boards.py"
+    spec = importlib.util.spec_from_file_location("seed_boards_migration", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert (mod.revision, mod.down_revision) == ("0006", "0005")
+
+    with database["admin"].begin() as conn:  # the autouse cleanup emptied the table, as a fresh install would be before 0006
+        conn.execute(text("TRUNCATE content.boards CASCADE"))
+        mod.op.execute = lambda sql: conn.execute(text(sql))
+        mod.upgrade()
+        mod.upgrade()
+        rows = conn.execute(text("SELECT code, name, sort_order FROM content.boards ORDER BY sort_order")).all()
+    assert [tuple(r) for r in rows] == [("CBSE", "CBSE", 1), ("ICSE", "ICSE", 2)]
