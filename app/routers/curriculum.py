@@ -24,6 +24,7 @@ from app.schemas import ActivityDetail, ActivitySummary, LevelOut, LibraryActivi
 from app.security import now
 from app.services.images import wire_definition
 from app.services.progress import family_tz
+from app.services.textbooks import placement_filter, placements_of
 
 router = APIRouter(prefix="/v1", tags=["curriculum"])
 
@@ -73,11 +74,13 @@ def list_activities(
     subject: str | None = None,
     level: str | None = None,
     interest: str | None = None,
+    board: str | None = Query(default=None, max_length=20, description="Only activities linked to a lesson of this board"),
+    book: str | None = Query(default=None, max_length=60, description="Only activities linked to a lesson of this textbook"),
     q: str | None = Query(default=None, max_length=80),
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> list[Activity]:
-    stmt = select(Activity).where(Activity.status == "published")
+    stmt = placement_filter(select(Activity).where(Activity.status == "published"), board, book)
     if subject:
         stmt = stmt.where(Activity.subject_code == subject)
     if level:
@@ -105,6 +108,8 @@ def child_library(
     actor: CurrentActor,
     db: DbSession,
     subject: str | None = None,
+    board: str | None = Query(default=None, max_length=20),
+    book: str | None = Query(default=None, max_length=60),
     q: str | None = Query(default=None, max_length=80),
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -113,7 +118,7 @@ def child_library(
     child's level (all levels when the child has none set), each with how many times the child has finished it, when
     last, and the next day it is planned. Activities the child has not done come first."""
     child = load_child(db, actor, child_id)
-    stmt = select(Activity).where(Activity.status == "published")
+    stmt = placement_filter(select(Activity).where(Activity.status == "published"), board, book)
     if subject:
         stmt = stmt.where(Activity.subject_code == subject)
     if child.level_code:
@@ -177,5 +182,8 @@ def get_activity(activity_id: uuid.UUID, actor: CurrentActor, db: DbSession) -> 
         raise not_found()
     codes = sorted(db.scalars(select(ActivitySkill.skill_code).where(ActivitySkill.activity_id == a.id)))
     return ActivityDetail(
-        **ActivitySummary.model_validate(a).model_dump(), skills=codes, definition=wire_definition(db, a.definition)
+        **ActivitySummary.model_validate(a).model_dump(),
+        skills=codes,
+        definition=wire_definition(db, a.definition),
+        placements=placements_of(db, a.id),
     )

@@ -15,9 +15,13 @@ from sqlalchemy.orm import Session
 from app.errors import ApiError
 from app.models import (
     Activity,
+    ActivityLesson,
     ActivitySkill,
     ActivityVersion,
+    Board,
+    Book,
     Interest,
+    Lesson,
     Level,
     Skill,
     SkillPrerequisite,
@@ -28,7 +32,10 @@ from app.security import now
 from app.services.content import finalize, validate_activity
 from app.services.images import asset_problems
 
-ENTITIES = ("levels", "subjects", "interests", "skills", "activities")
+ENTITIES = ("levels", "subjects", "interests", "skills", "boards", "books", "lessons", "activities", "lesson_links")
+
+BOARD_CODE = re.compile(r"^[A-Z0-9][A-Z0-9_-]{0,19}$")
+BOOK_CODE = re.compile(r"^[a-z0-9][a-z0-9-]{2,59}$")
 
 
 def level_order(db: Session) -> list[str]:
@@ -269,7 +276,69 @@ def _check_taxonomy(bundle: BundleIn, db: Session) -> tuple[list[str], set[str],
         for i in a.get("interests", []):
             if i not in interests:
                 problems.append(f"activity {a.get('slug')}: unknown interest {i!r}")
+    problems.extend(_check_textbooks(bundle, db, subjects, levels))
     return problems, skills, levels
+
+
+def _check_textbooks(bundle: BundleIn, db: Session, subjects: set[Any], levels: list[str]) -> list[str]:
+    """Boards, books with their lessons, and activity-to-lesson links. Codes are stable once used; nothing is deleted."""
+    problems: list[str] = []
+    boards = set(db.scalars(select(Board.code))) | {x.get("code") for x in bundle.boards}
+    seen: set[Any] = set()
+    for x in bundle.boards:
+        code = x.get("code")
+        if not isinstance(code, str) or not BOARD_CODE.match(code) or not x.get("name"):
+            problems.append(f"board {code!r}: an upper-case code (like CBSE) and a name are required")
+        if code in seen:
+            problems.append(f"board {code!r}: listed twice")
+        seen.add(code)
+    lessons: dict[str, set[int]] = {}
+    for code, pos in db.execute(select(Lesson.book_code, Lesson.position)).all():
+        lessons.setdefault(code, set()).add(pos)
+    seen = set()
+    for b in bundle.books:
+        code = b.get("code")
+        if not isinstance(code, str) or not BOOK_CODE.match(code):
+            problems.append(f"book {code!r}: the code must be 3-60 lower-case letters, digits or hyphens")
+            continue
+        if code in seen:
+            problems.append(f"book {code}: listed twice")
+        seen.add(code)
+        if b.get("board") not in boards:
+            problems.append(f"book {code}: unknown board {b.get('board')!r}")
+        if b.get("subject") not in subjects:
+            problems.append(f"book {code}: unknown subject {b.get('subject')!r}")
+        if b.get("level") is not None and b.get("level") not in levels:
+            problems.append(f"book {code}: unknown level {b.get('level')!r}")
+        if not str(b.get("grade", "")).strip() or len(str(b.get("grade"))) > 8:
+            problems.append(f"book {code}: grade is required (up to 8 characters, for example \"3\")")
+        if not b.get("title"):
+            problems.append(f"book {code}: title is required")
+        if b.get("edition_year") is not None and not isinstance(b.get("edition_year"), int):
+            problems.append(f"book {code}: edition_year must be a number")
+        positions: set[int] = set()
+        for lsn in b.get("lessons", []):
+            pos = lsn.get("position")
+            if not isinstance(pos, int) or isinstance(pos, bool) or pos <= 0 or not lsn.get("title"):
+                problems.append(f"book {code}: every lesson needs a positive whole-number position and a title")
+                continue
+            if pos in positions:
+                problems.append(f"book {code}: lesson position {pos} is used twice")
+            positions.add(pos)
+        lessons.setdefault(code, set()).update(positions)
+    slugs = set(db.scalars(select(Activity.slug))) | {a.get("slug") for a in bundle.activities}
+    for ln in bundle.lesson_links:
+        where = f"lesson link {ln.get('activity')!r} -> {ln.get('book')!r}/{ln.get('lesson')!r}"
+        if ln.get("activity") not in slugs:
+            problems.append(f"{where}: unknown activity")
+        if ln.get("book") not in lessons:
+            problems.append(f"{where}: unknown book")
+        elif ln.get("lesson") not in lessons[ln["book"]]:
+            problems.append(f"{where}: the book has no such lesson")
+        order = ln.get("order", 0)
+        if not isinstance(order, int) or isinstance(order, bool) or order < 0:
+            problems.append(f"{where}: order must be a whole number from 0")
+    return problems
 
 
 def import_bundle(db: Session, bundle: BundleIn) -> BundleReport:
@@ -345,6 +414,45 @@ def import_bundle(db: Session, bundle: BundleIn) -> BundleReport:
                     db.add(SkillPrerequisite(skill_code=s["code"], prerequisite_code=p))
         db.flush()
 
+        upsert_simple(Board, "code", bundle.boards, ["name", "sort_order"], "boards", defaults={"sort_order": 0})
+        db.flush()
+        for i, b in enumerate(bundle.books):
+            values = {
+                "board_code": b["board"],
+                "grade": str(b["grade"]).strip(),
+                "subject_code": b["subject"],
+                "title": b["title"],
+                "publisher": b.get("publisher"),
+                "edition_year": b.get("edition_year"),
+                "level_code": b.get("level"),
+                "status": b.get("status", "active"),
+            }
+            obj = db.get(Book, b["code"])
+            if obj is None:
+                db.add(Book(code=b["code"], **values))
+                created["books"] += 1
+            elif any(getattr(obj, f) != v for f, v in values.items()):
+                for f, v in values.items():
+                    setattr(obj, f, v)
+                updated["books"] += 1
+            else:
+                unchanged["books"] += 1
+        db.flush()
+        for b in bundle.books:
+            for lsn in b.get("lessons", []):
+                values = {"label": lsn.get("label"), "title": lsn["title"]}
+                obj = db.scalar(select(Lesson).where(Lesson.book_code == b["code"], Lesson.position == lsn["position"]))
+                if obj is None:
+                    db.add(Lesson(book_code=b["code"], position=lsn["position"], **values))
+                    created["lessons"] += 1
+                elif any(getattr(obj, f) != v for f, v in values.items()):
+                    for f, v in values.items():
+                        setattr(obj, f, v)
+                    updated["lessons"] += 1
+                else:
+                    unchanged["lessons"] += 1
+        db.flush()
+
         for d in map(finalize, bundle.activities):
             a = db.scalar(select(Activity).where(Activity.slug == d["slug"]))
             if a is None:
@@ -378,6 +486,20 @@ def import_bundle(db: Session, bundle: BundleIn) -> BundleReport:
                 updated["activities"] += 1
             else:
                 unchanged["activities"] += 1
+        db.flush()
+        for ln in bundle.lesson_links:
+            activity = db.scalar(select(Activity).where(Activity.slug == ln["activity"]))
+            lesson = db.scalar(select(Lesson).where(Lesson.book_code == ln["book"], Lesson.position == ln["lesson"]))
+            order = ln.get("order", 0)
+            link = db.get(ActivityLesson, (activity.id, lesson.id))
+            if link is None:
+                db.add(ActivityLesson(activity_id=activity.id, lesson_id=lesson.id, position=order))
+                created["lesson_links"] += 1
+            elif link.position != order:
+                link.position = order
+                updated["lesson_links"] += 1
+            else:
+                unchanged["lesson_links"] += 1
         db.flush()
         if bundle.dry_run:
             nested.rollback()

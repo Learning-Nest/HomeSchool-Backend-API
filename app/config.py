@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     smtp_password: SecretStr = SecretStr("")  # secret: Key Vault / real env var, never an env file
     email_from: str | None = None  # e.g. "LearnNest <verification@yourdomain.org>"
     email_brand: str = "LearnNest"  # the app name used in email subjects and bodies
+    lesson_pass_score: float = 0.6  # a scored activity counts as passed for textbook progress at or above this (0-1)
     temp_password_minutes: int = 60  # how long a forgot-password temporary password stays valid
     otp_ttl_minutes: int = 10
     otp_max_attempts: int = 5

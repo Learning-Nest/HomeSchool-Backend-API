@@ -91,6 +91,7 @@ def _clean(database):
     ratelimit.reset()
     with database["admin"].begin() as conn:
         conn.execute(text("TRUNCATE users, audit_log, outbox_events CASCADE"))
+        conn.execute(text("TRUNCATE content.boards CASCADE"))  # books, lessons, activity links and child_books follow
         pristine = _content_is_pristine(conn)
         if not pristine:
             conn.execute(text("TRUNCATE content.activities CASCADE"))

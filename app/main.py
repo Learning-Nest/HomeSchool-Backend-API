@@ -30,6 +30,7 @@ from app.routers import (
     progress,
     scrum,
     sessions,
+    textbooks,
 )
 
 log = logging.getLogger("app.access")
@@ -134,6 +135,7 @@ def create_app() -> FastAPI:
         assets,
         planned,
         scrum,
+        textbooks,
     ):
         app.include_router(module.router)
     return app

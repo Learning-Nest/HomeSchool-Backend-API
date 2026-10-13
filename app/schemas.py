@@ -231,9 +231,21 @@ class LibraryActivity(ActivitySummary):
     planned_for: date | None  # the next day it is planned for this child, if any
 
 
+class PlacementOut(Out):
+    """Where an activity sits in a textbook: board, book and lesson."""
+
+    board_code: str
+    book_code: str
+    book_title: str
+    grade: str
+    lesson_position: int
+    lesson_title: str
+
+
 class ActivityDetail(ActivitySummary):
     skills: list[str]
     definition: dict[str, Any]
+    placements: list[PlacementOut] = Field(default_factory=list)  # empty = board-neutral
 
 
 # ---------------------------------------------------------------------------- planning
@@ -427,6 +439,9 @@ class AdminDefinitionIn(BaseModel):
 class BundleIn(BaseModel):
     version: str = Field(min_length=1, max_length=40)
     levels: list[dict[str, Any]] = Field(default_factory=list)
+    boards: list[dict[str, Any]] = Field(default_factory=list)
+    books: list[dict[str, Any]] = Field(default_factory=list)  # each with its `lessons`
+    lesson_links: list[dict[str, Any]] = Field(default_factory=list)  # {activity: slug, book, lesson, order}
     subjects: list[dict[str, Any]] = Field(default_factory=list)
     interests: list[dict[str, Any]] = Field(default_factory=list)
     skills: list[dict[str, Any]] = Field(default_factory=list)
@@ -625,3 +640,91 @@ class EducatorActivityOut(BaseModel):
     educator: EducatorOut
     activities: list[AdminActivitySummary]
     events: list[ActivityEventOut]
+
+
+# ---------------------------------------------------------------------------- boards, textbooks, progress
+class BoardOut(Out):
+    code: str
+    name: str
+
+
+class BookOut(Out):
+    code: str
+    board_code: str
+    grade: str
+    subject_code: str
+    title: str
+    publisher: str | None
+    edition_year: int | None
+    level_code: str | None
+    lesson_count: int
+
+
+class LessonOut(BaseModel):
+    position: int
+    label: str | None
+    title: str
+    activity_count: int  # published activities linked to the lesson
+
+
+class BookDetail(BookOut):
+    lessons: list[LessonOut]
+
+
+class PathActivityOut(BaseModel):
+    id: uuid.UUID
+    slug: str
+    title: str
+    duration_min: int
+    status: Literal["not_started", "attempted", "passed"]  # attempted = finished but below the pass score
+    best_score: float | None
+    locked: bool  # true while the lesson is not unlocked (soft lock: parents can still plan it)
+
+
+class PathLessonOut(BaseModel):
+    position: int
+    label: str | None
+    title: str
+    state: Literal["locked", "open", "complete"]
+    activity_count: int
+    activities: list[PathActivityOut]  # a child never receives the activities of a locked lesson
+
+
+class BookPathOut(BaseModel):
+    book: BookOut
+    unlocked_through: int
+    pass_score: float
+    next_lesson_position: int | None  # the next lesson (with activities) a parent could unlock
+    can_unlock_next: bool  # every unlocked lesson is complete and there is a next lesson
+    lessons: list[PathLessonOut]
+
+
+class ChildBookOut(BaseModel):
+    book: BookOut
+    unlocked_through: int
+    lessons_total: int
+    lessons_complete: int
+    can_unlock_next: bool
+
+
+class UnlockNextIn(BaseModel):
+    force: bool = False  # skip ahead even though the unlocked lessons are not finished (the parent taught it)
+
+
+class NextUpOut(ActivitySummary):
+    """An activity a child can do now, in textbook order."""
+
+    book_code: str
+    lesson_position: int
+    lesson_title: str
+    status: Literal["not_started", "attempted"]
+
+
+class LessonRef(BaseModel):
+    book: str = Field(min_length=1, max_length=60)
+    lesson: int = Field(gt=0)
+    order: int = Field(default=0, ge=0, le=100000)
+
+
+class ActivityLessonsIn(BaseModel):
+    lessons: list[LessonRef] = Field(max_length=20)

@@ -418,3 +418,62 @@ class ScrumTask(Base):
     created_by_member_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("scrum_members.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = _now()
+
+
+# ----------------------------------------------------------------------------- boards, textbooks and lessons
+class Board(Base):
+    """An education board (CBSE, ICSE, a state board, ...). A row, never code: new boards need no release."""
+
+    __tablename__ = "boards"
+    __table_args__ = {"schema": "content"}
+    code: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[str] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class Book(Base):
+    __tablename__ = "books"
+    __table_args__ = {"schema": "content"}
+    code: Mapped[str] = mapped_column(Text, primary_key=True)
+    board_code: Mapped[str] = mapped_column(ForeignKey("content.boards.code"))
+    grade: Mapped[str] = mapped_column(Text)
+    subject_code: Mapped[str] = mapped_column(ForeignKey("content.subjects.code"))
+    title: Mapped[str] = mapped_column(Text)
+    publisher: Mapped[str | None] = mapped_column(Text)
+    edition_year: Mapped[int | None] = mapped_column(Integer)
+    level_code: Mapped[str | None] = mapped_column(ForeignKey("content.levels.code"))
+    status: Mapped[str] = mapped_column(Text, default="active", server_default="active")
+
+
+class Lesson(Base):
+    __tablename__ = "lessons"
+    __table_args__ = (UniqueConstraint("book_code", "position"), {"schema": "content"})
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    book_code: Mapped[str] = mapped_column(ForeignKey("content.books.code", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(Integer)
+    label: Mapped[str | None] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(Text)
+
+
+class ActivityLesson(Base):
+    """Links an activity to a lesson; `position` orders the activities inside the lesson."""
+
+    __tablename__ = "activity_lessons"
+    __table_args__ = {"schema": "content"}
+    activity_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("content.activities.id", ondelete="CASCADE"), primary_key=True
+    )
+    lesson_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("content.lessons.id", ondelete="CASCADE"), primary_key=True)
+    position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class ChildBook(Base):
+    """A child following a textbook. `unlocked_through` is the highest lesson position the parent has unlocked."""
+
+    __tablename__ = "child_books"
+    family_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("families.id", ondelete="CASCADE"))
+    child_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("children.id", ondelete="CASCADE"), primary_key=True)
+    book_code: Mapped[str] = mapped_column(ForeignKey("content.books.code"), primary_key=True)
+    unlocked_through: Mapped[int] = mapped_column(Integer)
+    started_at: Mapped[datetime] = _now()
+    updated_at: Mapped[datetime] = _now()
