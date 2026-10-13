@@ -240,6 +240,7 @@ class PlacementOut(Out):
     grade: str
     lesson_position: int
     lesson_title: str
+    order: int = 0  # the activity's place inside that lesson
 
 
 class ActivityDetail(ActivitySummary):

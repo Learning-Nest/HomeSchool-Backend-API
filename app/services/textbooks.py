@@ -64,7 +64,7 @@ def placement_filter(stmt: Any, board: str | None, book: str | None) -> Any:
 
 def placements_of(db: Session, activity_id: uuid.UUID) -> list[PlacementOut]:
     rows = db.execute(
-        select(Book, Lesson)
+        select(Book, Lesson, ActivityLesson.position)
         .join(Lesson, Lesson.book_code == Book.code)
         .join(ActivityLesson, ActivityLesson.lesson_id == Lesson.id)
         .where(ActivityLesson.activity_id == activity_id, Book.status == "active")
@@ -78,8 +78,9 @@ def placements_of(db: Session, activity_id: uuid.UUID) -> list[PlacementOut]:
             grade=b.grade,
             lesson_position=lsn.position,
             lesson_title=lsn.title,
+            order=pos,
         )
-        for b, lsn in rows
+        for b, lsn, pos in rows
     ]
 
 

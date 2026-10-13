@@ -7,8 +7,9 @@ import uuid
 from fastapi import APIRouter, Query, Response
 from sqlalchemy import func, select
 
-from app.deps import WRITE_ROLES, AdminActor, CurrentActor, DbSession, ParentActor, load_child
+from app.deps import WRITE_ROLES, CurrentActor, DbSession, ParentActor, StaffActor, load_child
 from app.errors import ApiError, not_found
+from app.routers.admin import _require_editable, get_activity_for
 from app.models import Activity, ActivityLesson, Board, Book, ChildBook, Lesson
 from app.schemas import (
     ActivityLessonsIn,
@@ -199,18 +200,18 @@ def child_next_up(
 
 # ------------------------------------------------------------------------------------------------ admin: links
 @router.get("/admin/activities/{activity_id}/lessons", response_model=list[PlacementOut])
-def get_links(activity_id: uuid.UUID, actor: AdminActor, db: DbSession) -> list[PlacementOut]:
-    if db.get(Activity, activity_id) is None:
-        raise not_found()
+def get_links(activity_id: uuid.UUID, actor: StaffActor, db: DbSession) -> list[PlacementOut]:
+    get_activity_for(db, actor, activity_id)  # an educator reaches only their own activities (404 otherwise)
     return tb.placements_of(db, activity_id)
 
 
 @router.put("/admin/activities/{activity_id}/lessons", response_model=list[PlacementOut])
-def set_links(activity_id: uuid.UUID, body: ActivityLessonsIn, actor: AdminActor, db: DbSession) -> list[PlacementOut]:
-    """Replaces the lessons an activity belongs to (an activity may belong to lessons of several books and boards)."""
-    activity = db.get(Activity, activity_id)
-    if activity is None:
-        raise not_found()
+def set_links(activity_id: uuid.UUID, body: ActivityLessonsIn, actor: StaffActor, db: DbSession) -> list[PlacementOut]:
+    """Replaces the lessons an activity belongs to (an activity may belong to lessons of several books and boards).
+
+    Admins may change any activity; an educator only their own, and only while it is a draft."""
+    activity = get_activity_for(db, actor, activity_id)
+    _require_editable(actor, activity)
     wanted: dict[uuid.UUID, int] = {}
     for ref in body.lessons:
         lesson = db.scalar(select(Lesson).where(Lesson.book_code == ref.book, Lesson.position == ref.lesson))

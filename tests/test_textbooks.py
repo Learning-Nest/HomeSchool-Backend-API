@@ -247,7 +247,7 @@ def test_admin_can_replace_an_activitys_lessons(loaded, parent, make_admin, scor
     assert parent.put(f"/v1/admin/activities/{a['id']}/lessons", json={"lessons": []}).status_code == 403
     r = admin.put(f"/v1/admin/activities/{a['id']}/lessons", json={"lessons": [{"book": BOOK, "lesson": 4, "order": 5}]})
     assert r.status_code == 200
-    assert [(p["book_code"], p["lesson_position"]) for p in r.json()] == [(BOOK, 4)]  # the ICSE link was replaced
+    assert [(p["book_code"], p["lesson_position"], p["order"]) for p in r.json()] == [(BOOK, 4, 5)]  # the ICSE link was replaced
     bad = admin.put(f"/v1/admin/activities/{a['id']}/lessons", json={"lessons": [{"book": BOOK, "lesson": 42}]})
     assert bad.status_code == 422
     assert admin.get(f"/v1/admin/activities/{a['id']}/lessons").json() == r.json()
@@ -263,3 +263,22 @@ def test_child_books_is_protected_by_row_level_security(database):
         ).one()
         policies = c.execute(text("select policyname from pg_policies where tablename = 'child_books'")).scalars().all()
     assert tuple(row) == (True, True) and policies == ["family_isolation"]
+
+
+def test_educator_places_only_their_own_drafts_in_lessons(loaded, make_admin):
+    from tests.test_educators import new_draft, valid_draft
+
+    edu, other = make_admin("educator"), make_admin("educator")
+    a = new_draft(edu)
+    url = f"/v1/admin/activities/{a['id']}/lessons"
+    body = {"lessons": [{"book": BOOK, "lesson": 1, "order": 1}]}
+    assert other.get(url).status_code == 404 and other.put(url, json=body).status_code == 404
+    r = edu.put(url, json=body)
+    assert r.status_code == 200 and [(p["book_code"], p["lesson_position"]) for p in r.json()] == [(BOOK, 1)]
+    assert edu.get(url).json() == r.json()
+    # once submitted for review the educator can no longer change it
+    b = valid_draft(edu, "Placed later")
+    assert edu.post(f"/v1/admin/activities/{b['id']}/validate").json()["ok"]
+    assert edu.post(f"/v1/admin/activities/{b['id']}/submit").status_code == 200
+    locked = edu.put(f"/v1/admin/activities/{b['id']}/lessons", json=body)
+    assert locked.status_code == 409 and locked.json()["error"]["code"] == "activity_locked"
