@@ -13,7 +13,7 @@ from sqlalchemy import func, or_, select
 
 from app.deps import AdminActor, DbSession, StaffActor
 from app.errors import ApiError, not_found
-from app.models import Activity, ActivitySkill, Family, Skill, User
+from app.models import Activity, ActivityAssignment, ActivitySkill, Family, Skill, User
 from app.schemas import (
     ActivityDraftIn,
     AdminActivityDetail,
@@ -29,6 +29,7 @@ from app.schemas import (
     ValidationOut,
 )
 from app.security import now
+from app.services import assignments as assignment_service
 from app.services import catalog
 from app.services.events import audit, record_activity_event
 
@@ -51,10 +52,31 @@ def _names(db, ids) -> dict[uuid.UUID, str]:
 
 
 def summaries(db, rows: list[Activity]) -> list[AdminActivitySummary]:
-    names = _names(db, [x for a in rows for x in (a.created_by, a.last_edited_by, a.reviewed_by)])
+    live = (
+        {
+            r.activity_id: r
+            for r in db.scalars(
+                select(ActivityAssignment).where(
+                    ActivityAssignment.activity_id.in_([a.id for a in rows]),
+                    ActivityAssignment.status.in_(assignment_service.LIVE),
+                )
+            )
+        }
+        if rows
+        else {}
+    )
+    names = _names(
+        db,
+        [x for a in rows for x in (a.created_by, a.last_edited_by, a.reviewed_by)]
+        + [r.educator_id for r in live.values()],
+    )
     out = []
     for a in rows:
         s = AdminActivitySummary.model_validate(a)
+        if a.id in live:
+            r = live[a.id]
+            s.assignment_id, s.assigned_to, s.assignment_due = r.id, r.educator_id, r.due_date
+            s.assigned_to_name = names.get(r.educator_id)
         s.created_by_name = names.get(a.created_by)
         s.last_edited_by_name = names.get(a.last_edited_by)
         s.reviewed_by_name = names.get(a.reviewed_by)
@@ -70,9 +92,14 @@ def _detail(db, a: Activity) -> AdminActivityDetail:
 
 
 def get_activity_for(db, actor, activity_id: uuid.UUID) -> Activity:
-    """An admin reaches any activity; an educator only their own (anything else is a 404, never a 403)."""
+    """An admin reaches any activity; an educator their own and the ones an admin assigned to them (anything else is a
+    404, never a 403)."""
     a = db.get(Activity, activity_id)
-    if a is None or (not actor.is_content_admin and a.created_by != actor.user_id):
+    if a is None or (
+        not actor.is_content_admin
+        and a.created_by != actor.user_id
+        and not assignment_service.can_reach(db, actor.user_id, a.id)
+    ):
         raise not_found()
     return a
 
@@ -101,7 +128,13 @@ def _problem_outs(definition: dict, problems: list[str]) -> list[ProblemOut]:
 
 # ------------------------------------------------------------------------------------------------ who am I
 CAPABILITIES = {
-    "educator": ["activities.write_own", "activities.validate", "activities.submit", "assets.upload"],
+    "educator": [
+        "activities.write_own",
+        "activities.validate",
+        "activities.submit",
+        "assets.upload",
+        "assignments.view_own",
+    ],
     "content_admin": [
         "activities.write_own",
         "activities.validate",
@@ -113,6 +146,7 @@ CAPABILITIES = {
         "bundle.import",
         "educators.view",
         "activity_log.view",
+        "assignments.manage",
     ],
 }
 CAPABILITIES["super_admin"] = [*CAPABILITIES["content_admin"], "educators.manage"]
@@ -155,7 +189,13 @@ def list_activities(
 ) -> list[AdminActivitySummary]:
     stmt = select(Activity)
     if not actor.is_content_admin:
-        stmt = stmt.where(Activity.created_by == actor.user_id)  # educators: only their own work
+        # educators: their own work and what an admin assigned to them
+        stmt = stmt.where(
+            or_(
+                Activity.created_by == actor.user_id,
+                Activity.id.in_(assignment_service.assigned_activity_ids(actor.user_id)),
+            )
+        )
     elif author:
         stmt = stmt.where(Activity.created_by == author)
     if status:
@@ -250,6 +290,7 @@ def submit(activity_id: uuid.UUID, actor: StaffActor, db: DbSession) -> AdminAct
     a.status, a.submitted_by, a.submitted_at, a.review_note = "in_review", actor.user_id, now(), None
     a.updated_at = now()
     record_activity_event(db, a, actor.user_id, "submitted", status_from="draft", status_to="in_review")
+    assignment_service.on_status_change(db, a, "draft", actor.user_id)
     audit(
         db,
         "content.status_changed",
@@ -297,6 +338,7 @@ def set_status(activity_id: uuid.UUID, body: AdminStatusIn, actor: AdminActor, d
         status_to=a.status,
         **({"note": body.note} if body.note else {}),
     )
+    assignment_service.on_status_change(db, a, before, actor.user_id)
     audit(
         db,
         "content.status_changed",

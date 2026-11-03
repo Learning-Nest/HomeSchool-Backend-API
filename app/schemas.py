@@ -413,6 +413,11 @@ class AdminActivitySummary(ActivitySummary):
     review_note: str | None = None
     last_validated_at: datetime | None = None
     is_validated: bool = False  # the current content passed validation (any later edit clears it)
+    # The live assignment (open or submitted), if an admin handed this draft to an educator.
+    assignment_id: uuid.UUID | None = None
+    assigned_to: uuid.UUID | None = None
+    assigned_to_name: str | None = None
+    assignment_due: date | None = None
 
 
 class AdminActivityDetail(AdminActivitySummary):
@@ -582,6 +587,65 @@ class AssetOut(Out):
     sha256: str
     created_at: datetime
     url: str | None = None  # short-lived preview link
+
+
+AssignmentStatus = Literal["open", "submitted", "completed", "cancelled"]
+
+
+class AssignmentCreateIn(BaseModel):
+    educator_id: uuid.UUID
+    requirements: str = Field(min_length=1, max_length=4000)
+    due_date: date | None = None
+
+    @field_validator("requirements")
+    @classmethod
+    def _requirements_not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Write what the educator needs to do.")
+        return v
+
+
+class AssignmentPatchIn(BaseModel):
+    """Only the fields that are sent change; send due_date null to remove the date."""
+
+    requirements: str | None = Field(default=None, min_length=1, max_length=4000)
+    due_date: date | None = None
+
+    @field_validator("requirements")
+    @classmethod
+    def _requirements_not_blank(cls, v: str | None) -> str | None:
+        if v is not None and not v.strip():
+            raise ValueError("Write what the educator needs to do.")
+        return v.strip() if v is not None else v
+
+
+class AssignmentOut(BaseModel):
+    id: uuid.UUID
+    activity_id: uuid.UUID
+    activity_slug: str
+    activity_title: str
+    activity_status: str
+    educator_id: uuid.UUID
+    educator_name: str | None = None
+    assigned_by: uuid.UUID | None = None
+    assigned_by_name: str | None = None
+    requirements: str
+    due_date: date | None = None
+    status: AssignmentStatus
+    overdue: bool = False  # still with the educator (open) and past the due date
+    # The reviewer's note when the activity was sent back; shown on the assignment so it is not missed.
+    review_note: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    submitted_at: datetime | None = None
+    completed_at: datetime | None = None
+    cancelled_at: datetime | None = None
+
+
+class AssignmentCreateOut(BaseModel):
+    assignment: AssignmentOut
+    email_sent: bool
 
 
 class EducatorOut(BaseModel):

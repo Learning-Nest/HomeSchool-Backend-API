@@ -117,3 +117,22 @@ def send_educator_invite(to: str, full_name: str, temp_password: str, valid_days
         "a new password straight away.\n\n"
         "If you were not expecting this, you can ignore this email.\n",
     )
+
+
+def send_activity_assignment(
+    to: str, full_name: str, activity_title: str, requirements: str, due_date, assigned_by: str
+) -> None:
+    """Tells an educator that an admin handed them a draft. No link and no secrets: they sign in as usual and open
+    "My assignments". The title is flattened to one line because it goes into the subject."""
+    brand = get_settings().email_brand
+    title = " ".join(activity_title.split()) or "an activity"
+    due = f"Due: {due_date.strftime('%d %B %Y')}\n\n" if due_date else ""
+    send_email(
+        to,
+        f"New {brand} assignment: {title[:80]}",
+        f"Hello {full_name},\n\n"
+        f"{assigned_by} has assigned you the draft activity “{title}”.\n\n"
+        f"{due}What is needed:\n\n{requirements}\n\n"
+        f"Sign in to the {brand} educator console and open “My assignments” to start. "
+        "When you are done, check the activity and send it for review.\n",
+    )

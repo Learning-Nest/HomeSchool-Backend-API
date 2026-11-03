@@ -245,6 +245,29 @@ class ActivityEvent(Base):
     detail: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
 
 
+class ActivityAssignment(Base):
+    """An admin's request that an educator finishes a draft, with written requirements and an optional due date.
+
+    status: open (the educator is working on it), submitted (sent for review), completed (published) or cancelled
+    (withdrawn, reassigned or archived). At most one assignment per activity is open or submitted.
+    """
+
+    __tablename__ = "activity_assignments"
+    __table_args__ = {"schema": "content"}
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    activity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("content.activities.id", ondelete="CASCADE"))
+    educator_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    assigned_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    requirements: Mapped[str] = mapped_column(Text)
+    due_date: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(Text, default="open", server_default="open")
+    created_at: Mapped[datetime] = _now()
+    updated_at: Mapped[datetime] = _now()
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Asset(Base):
     """An uploaded, re-encoded image. The activity definition refers to it by id; the bytes live in blob storage."""
 

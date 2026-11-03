@@ -18,6 +18,7 @@ from app.logging_setup import setup_logging
 from app.routers import (
     admin,
     assets,
+    assignments,
     auth,
     children,
     curriculum,
@@ -132,6 +133,7 @@ def create_app() -> FastAPI:
         progress,
         admin,
         educators,
+        assignments,
         assets,
         planned,
         scrum,
