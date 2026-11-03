@@ -105,6 +105,21 @@ def send_temp_password(to: str, full_name: str, temp_password: str, valid_minute
     )
 
 
+def send_admin_password_reset(to: str, full_name: str, temp_password: str, valid_hours: int) -> None:
+    """An administrator started a password reset for this person. The temporary password is the only secret."""
+    brand = get_settings().email_brand
+    send_email(
+        to,
+        f"Reset your {brand} password",
+        f"Hello {full_name},\n\n"
+        f"An administrator has started a password reset for your {brand} account. Your temporary password is:\n\n"
+        f"    {temp_password}\n\n"
+        f"Sign in with your email address and this password within {valid_hours} hours; you will be asked to choose "
+        "a new password straight away. Your existing password keeps working until then.\n\n"
+        "If you were not expecting this, you can ignore this email.\n",
+    )
+
+
 def send_educator_invite(to: str, full_name: str, temp_password: str, valid_days: int) -> None:
     brand = get_settings().email_brand
     send_email(

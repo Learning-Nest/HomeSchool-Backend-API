@@ -34,6 +34,7 @@ from app.services.events import audit
 
 router = APIRouter(prefix="/v1/admin", tags=["admin"])
 INVITE_VALID_DAYS = 7
+RESET_VALID_HOURS = 24
 
 
 def educator_outs(db, users: list[User]) -> list[EducatorOut]:
@@ -279,7 +280,7 @@ def resend_invitation(educator_id: uuid.UUID, actor: SuperAdminActor, db: DbSess
     if u.status != "active":
         raise ApiError(409, "conflict", "This educator is disabled. Re-enable them before sending an invitation.")
     if not educator_outs(db, [u])[0].invite_pending:
-        raise ApiError(409, "conflict", "This educator has already signed in. They can use \u201cForgot password\u201d.")
+        raise ApiError(409, "conflict", "This educator has already signed in. Use \u201cReset password\u201d instead.")
     ratelimit.check(f"invite:{u.id}", 5, 3600)
     temp = new_temp_password()
     u.reset_hash = hash_secret(temp)
@@ -293,6 +294,40 @@ def resend_invitation(educator_id: uuid.UUID, actor: SuperAdminActor, db: DbSess
     audit(
         db,
         "educator.invite_resent",
+        actor_user_id=actor.user_id,
+        entity="user",
+        entity_id=u.id,
+        email_sent=sent,
+        request_id=actor.request_id,
+    )
+    return EducatorInviteOut(educator=educator_outs(db, [u])[0], email_sent=sent)
+
+
+@router.post("/educators/{educator_id}/reset-password", response_model=EducatorInviteOut)
+def reset_educator_password(educator_id: uuid.UUID, actor: SuperAdminActor, db: DbSession) -> EducatorInviteOut:
+    """Emails a temporary password (valid RESET_VALID_HOURS) to an educator who has already signed in and lost their
+    password. Their current password keeps working until they use the temporary one, which forces a new password and
+    ends every session. The password is never returned. Educators who have not signed in yet get a resent invitation."""
+    u = _educator(db, educator_id)
+    if u.status != "active":
+        raise ApiError(409, "conflict", "This educator is disabled. Re-enable them before resetting their password.")
+    if educator_outs(db, [u])[0].invite_pending:
+        raise ApiError(
+            409, "conflict", "This educator has not signed in yet. Use \u201cResend invitation\u201d instead."
+        )
+    ratelimit.check(f"pwreset:{u.id}", 5, 3600)
+    temp = new_temp_password()
+    u.reset_hash = hash_secret(temp)
+    u.reset_expires_at = now() + timedelta(hours=RESET_VALID_HOURS)
+    u.updated_at = now()
+    try:
+        email_service.send_admin_password_reset(u.email, u.full_name, temp, RESET_VALID_HOURS)
+        sent = True
+    except ApiError:
+        sent = False
+    audit(
+        db,
+        "educator.password_reset_sent",
         actor_user_id=actor.user_id,
         entity="user",
         entity_id=u.id,

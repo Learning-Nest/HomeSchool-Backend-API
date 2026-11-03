@@ -322,3 +322,91 @@ def test_resend_invitation_needs_a_super_admin_an_active_educator_and_is_rate_li
     boss.patch(f"/v1/admin/educators/{edu['id']}", json={"active": True})
     codes = [boss.post(url).status_code for _ in range(6)]
     assert codes[:5] == [200] * 5 and codes[5] == 429
+
+
+# ------------------------------------------------------------------------------------------------ admin password reset
+def _signed_in_educator(client, boss, password="Original-pass-123"):
+    """An educator who has replaced the temporary password with one of their own."""
+    email = f"reset-{uuid.uuid4().hex[:6]}@example.com"
+    edu = _invite(boss, email)
+    temp = _temp_from_outbox()
+    tok = client.post("/v1/auth/login", json={"email": email, "password": temp}).json()
+    ch = client.post(
+        "/v1/auth/change-password",
+        json={"current_password": temp, "new_password": password},
+        headers={"Authorization": f"Bearer {tok['access_token']}"},
+    )
+    assert ch.status_code == 200, ch.text
+    email_service.OUTBOX.clear()
+    return edu, email, password
+
+
+def test_admin_reset_emails_a_temporary_password_and_keeps_the_old_one_working(client, make_admin):
+    boss = make_admin("super_admin")
+    edu, email, password = _signed_in_educator(client, boss)
+    r = boss.post(f"/v1/admin/educators/{edu['id']}/reset-password")
+    assert r.status_code == 200, r.text
+    assert r.json()["email_sent"] is True and r.json()["educator"]["id"] == edu["id"]
+    assert len(email_service.OUTBOX) == 1 and email_service.OUTBOX[0].to == email
+    temp = _temp_from_outbox()
+    assert temp not in r.text and password not in r.text  # the password is only ever emailed
+    login = client.post("/v1/auth/login", json={"email": email, "password": temp}).json()
+    assert login["temp_login"] is True
+    # the person can then choose a new password, which also ends the other sessions
+    ch = client.post(
+        "/v1/auth/change-password",
+        json={"current_password": temp, "new_password": "Another-new-pass-7"},
+        headers={"Authorization": f"Bearer {login['access_token']}"},
+    )
+    assert ch.status_code == 200, ch.text
+    assert client.post("/v1/auth/login", json={"email": email, "password": password}).status_code == 401
+    assert client.post("/v1/auth/login", json={"email": email, "password": "Another-new-pass-7"}).status_code == 200
+    assert client.post("/v1/auth/login", json={"email": email, "password": temp}).status_code == 401
+
+
+def test_admin_reset_leaves_the_old_password_working_and_remembering_it_cancels_the_reset(client, make_admin):
+    boss = make_admin("super_admin")
+    edu, email, password = _signed_in_educator(client, boss)
+    assert boss.post(f"/v1/admin/educators/{edu['id']}/reset-password").status_code == 200
+    temp = _temp_from_outbox()
+    assert client.post("/v1/auth/login", json={"email": email, "password": password}).json()["temp_login"] is False
+    assert client.post("/v1/auth/login", json={"email": email, "password": temp}).status_code == 401
+
+
+def test_admin_reset_reports_a_failed_email_and_writes_an_audit_event(client, make_admin, monkeypatch, database):
+    boss = make_admin("super_admin")
+    edu, _, _ = _signed_in_educator(client, boss)
+
+    def broken(*a, **k):
+        raise ApiError(503, "delivery_failed")
+
+    monkeypatch.setattr(email_service, "send_admin_password_reset", broken)
+    r = boss.post(f"/v1/admin/educators/{edu['id']}/reset-password")
+    assert r.status_code == 200 and r.json()["email_sent"] is False
+    with database["admin"].begin() as conn:
+        n = conn.execute(
+            text("select count(*) from audit_log where action = 'educator.password_reset_sent' and entity_id = :i"),
+            {"i": edu["id"]},
+        ).scalar()
+    assert n == 1
+
+
+def test_admin_reset_is_not_for_people_who_have_not_signed_in_yet(client, make_admin):
+    boss = make_admin("super_admin")
+    edu = _invite(boss, f"pend-{uuid.uuid4().hex[:6]}@example.com")
+    r = boss.post(f"/v1/admin/educators/{edu['id']}/reset-password")
+    assert r.status_code == 409 and "Resend invitation" in r.text
+
+
+def test_admin_reset_needs_a_super_admin_an_active_educator_and_is_rate_limited(client, make_admin):
+    boss = make_admin("super_admin")
+    edu, _, _ = _signed_in_educator(client, boss)
+    url = f"/v1/admin/educators/{edu['id']}/reset-password"
+    assert make_admin("educator").post(url).status_code == 403
+    assert make_admin("content_admin").post(url).status_code == 403
+    assert boss.post(f"/v1/admin/educators/{uuid.uuid4()}/reset-password").status_code == 404
+    assert boss.patch(f"/v1/admin/educators/{edu['id']}", json={"active": False}).status_code == 200
+    assert boss.post(url).status_code == 409
+    boss.patch(f"/v1/admin/educators/{edu['id']}", json={"active": True})
+    codes = [boss.post(url).status_code for _ in range(6)]
+    assert codes[:5] == [200] * 5 and codes[5] == 429
