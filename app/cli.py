@@ -4,6 +4,7 @@ migrate            apply database migrations (alembic upgrade head)
 ensure-app-role    create/refresh the least-privilege database role the API connects as (needs admin DB credentials)
 seed               import curriculum + activities from a bundle file or the content-curriculum folder
 create-admin       create or promote a platform user (educator | content_admin | super_admin)
+set-plan-mode      switch families between parent-planned and system-released daily activities
 release            migrate + ensure-app-role (when APP_DB_PASSWORD is set) + seed (when SEED_BUNDLE_PATH is set)
 """
 
@@ -137,6 +138,26 @@ def create_admin(email: str, name: str, role: str) -> None:
         db.commit()
 
 
+def set_plan_mode(mode: str, family: str | None, everyone: bool) -> None:
+    """Switches families between parent-planned and system-released activities (see app/services/daily.py)."""
+    from app.db import get_factory
+    from app.models import Family
+
+    if bool(family) == bool(everyone):
+        raise SystemExit("Give exactly one of --family <id> or --all")
+    with get_factory()() as db:
+        stmt = select(Family).where(Family.deleted_at.is_(None))
+        if family:
+            stmt = stmt.where(Family.id == family)
+        rows = list(db.scalars(stmt))
+        if not rows:
+            raise SystemExit("No matching family")
+        for f in rows:
+            f.plan_mode = mode
+        db.commit()
+    print(f"{len(rows)} family(ies) set to plan_mode={mode}")
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(
         prog="python -m app.cli", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -153,6 +174,10 @@ def main(argv: list[str] | None = None) -> None:
     a.add_argument("--email", required=True)
     a.add_argument("--name", required=True)
     a.add_argument("--role", choices=["educator", "content_admin", "super_admin"], default="content_admin")
+    pm = sub.add_parser("set-plan-mode", help="parent = parents plan activities; system = LearnNest releases them daily")
+    pm.add_argument("--mode", choices=["parent", "system"], required=True)
+    pm.add_argument("--family", help="one family id")
+    pm.add_argument("--all", action="store_true", help="every family")
     sub.add_parser("release")
     args = ap.parse_args(argv)
 
@@ -164,6 +189,8 @@ def main(argv: list[str] | None = None) -> None:
         seed_from_path(args.path, auto_publish=args.publish, dry_run=args.dry_run)
     elif args.cmd == "create-admin":
         create_admin(args.email, args.name, args.role)
+    elif args.cmd == "set-plan-mode":
+        set_plan_mode(args.mode, args.family, args.all)
     elif args.cmd == "release":
         migrate()
         if os.getenv("APP_DB_PASSWORD"):

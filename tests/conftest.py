@@ -92,6 +92,8 @@ def _clean(database):
     with database["admin"].begin() as conn:
         conn.execute(text("TRUNCATE users, audit_log, outbox_events CASCADE"))
         conn.execute(text("TRUNCATE content.boards CASCADE"))  # books, lessons, activity links and child_books follow
+        conn.execute(text("TRUNCATE content.release_policies"))  # back to the default row
+        conn.execute(text("INSERT INTO content.release_policies (scope_board, scope_grade) VALUES ('', '')"))
         pristine = _content_is_pristine(conn)
         if not pristine:
             conn.execute(text("TRUNCATE content.activities CASCADE"))

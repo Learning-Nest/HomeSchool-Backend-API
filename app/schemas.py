@@ -102,6 +102,7 @@ class FamilyOut(Out):
     id: uuid.UUID
     name: str
     timezone: str
+    plan_mode: Literal["parent", "system"] = "parent"
     version: int
 
 
@@ -149,6 +150,8 @@ class ChildIn(BaseModel):
     display_name: str = Field(min_length=1, max_length=40)
     birth_year: int | None = Field(default=None, ge=2000, le=2100)
     level_code: str | None = Field(default=None, pattern=r"^L[1-5]$")
+    board_code: str | None = Field(default=None, max_length=20)
+    grade: str | None = Field(default=None, min_length=1, max_length=20)
     avatar: str = Field(default="star", max_length=30)
     interests: list[str] = Field(default_factory=list, max_length=12)
     goals: list[str] = Field(default_factory=list, max_length=10)
@@ -158,6 +161,8 @@ class ChildPatch(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=40)
     birth_year: int | None = Field(default=None, ge=2000, le=2100)
     level_code: str | None = Field(default=None, pattern=r"^L[1-5]$")
+    board_code: str | None = Field(default=None, max_length=20)
+    grade: str | None = Field(default=None, min_length=1, max_length=20)
     avatar: str | None = Field(default=None, max_length=30)
     interests: list[str] | None = Field(default=None, max_length=12)
     goals: list[str] | None = Field(default=None, max_length=10)
@@ -170,6 +175,9 @@ class ChildOut(Out):
     display_name: str
     birth_year: int | None
     level_code: str | None
+    board_code: str | None = None
+    grade: str | None = None
+    paused_until: date | None = None
     avatar: str
     interests: list[str]
     goals: list[str]
@@ -271,6 +279,13 @@ class PlanItemOut(BaseModel):
     position: int
     status: str
     version: int
+    # parent = planned by a parent, system = released by the daily engine, revision = "practice again"
+    source: Literal["parent", "system", "revision"] = "parent"
+    released_on: date | None = None
+    book_code: str | None = None
+    lesson_position: int | None = None
+    lesson_title: str | None = None
+    carry_over: bool = False  # still open from an earlier day
 
 
 class PlanOut(BaseModel):
@@ -793,3 +808,253 @@ class LessonRef(BaseModel):
 
 class ActivityLessonsIn(BaseModel):
     lessons: list[LessonRef] = Field(max_length=20)
+
+
+# ---------------------------------------------------------------------------- daily release (system-assigned activities)
+DailyReason = Literal[
+    "released",
+    "already_released_today",
+    "below_threshold",
+    "too_many_open",
+    "no_content",
+    "paused",
+    "not_a_school_day",
+    "no_books",
+    "not_system_mode",
+]
+
+
+class DailyProgressOut(BaseModel):
+    """How far the child is through the most recently released set, and what the next release needs."""
+
+    set_released_on: date | None
+    done: int
+    total: int
+    ratio: float
+    threshold: float
+    more_needed: int  # activities still to finish before the next set can be released (0 = ready)
+    open_items: int
+
+
+class DailyStatusOut(BaseModel):
+    child_id: uuid.UUID
+    plan_mode: Literal["parent", "system"]
+    paused_until: date | None
+    progress: DailyProgressOut
+
+
+class DailySyncOut(DailyStatusOut):
+    released: list[PlanItemOut]
+    reason: DailyReason
+
+
+class PauseIn(BaseModel):
+    paused_until: date | None = None  # null resumes the daily release
+
+
+# ---------------------------------------------------------------------------- results and practice
+ResultGroupBy = Literal["subject", "week", "subject_week", "month", "lesson", "skill"]
+ResultStatus = Literal["passed", "attempted", "unscored", "waiting_review"]
+
+
+class ResultBucket(BaseModel):
+    key: str
+    label: str
+    subject_code: str | None = None
+    week_start: date | None = None
+    month: str | None = None  # YYYY-MM
+    book_code: str | None = None
+    lesson_position: int | None = None
+    skill_code: str | None = None
+    activities: int  # distinct activities finished in the bucket
+    attempts: int
+    scored_activities: int
+    avg_best_score: float | None  # mean of each activity's best score (practising again raises it)
+    avg_latest_score: float | None
+    minutes: int
+    independent_pct: int | None
+    hints_used: int
+    waiting_review: int
+    needs_attention: int  # activities whose best score is under the pass mark
+    previous_score: float | None  # avg_best_score of the previous bucket of the same kind, for the trend
+    trend: Literal["up", "flat", "down"] | None
+
+
+class ResultSummaryOut(BaseModel):
+    child_id: uuid.UUID
+    group_by: ResultGroupBy
+    range_start: date
+    range_end: date
+    pass_score: float
+    strong_score: float
+    buckets: list[ResultBucket]
+
+
+class ResultActivityOut(BaseModel):
+    activity: ActivitySummary
+    attempts: int
+    first_score: float | None
+    latest_score: float | None
+    best_score: float | None
+    last_done_at: datetime
+    status: ResultStatus
+    needs_attention: bool
+    waiting_review: int
+    book_code: str | None = None
+    lesson_position: int | None = None
+    last_session_id: uuid.UUID
+
+
+class AttemptOut(BaseModel):
+    session_id: uuid.UUID
+    submitted_at: datetime
+    score: float | None
+    reviewed_score: float | None
+    duration_sec: int
+    hints_used: int
+    parent_assist: bool
+    needs_review: list[str]
+
+
+class ActivityAttemptsOut(BaseModel):
+    activity: ActivitySummary
+    first_score: float | None
+    latest_score: float | None
+    best_score: float | None
+    attempts: list[AttemptOut]  # newest first
+
+
+class ExerciseResultOut(BaseModel):
+    id: str
+    type: str
+    prompt: str | None
+    scored: bool
+    score: float | None
+    correct: bool | None
+    answer: Any | None
+    correct_answer: Any | None  # parent token only; null for a child token
+    feedback: str | None
+    skills: list[str]
+    needs_review: bool
+    rating: str | None  # the parent's rating (trying | with_help | independent) once reviewed
+
+
+class AttemptDetailOut(BaseModel):
+    session_id: uuid.UUID
+    activity: ActivitySummary
+    submitted_at: datetime | None
+    score: float | None
+    reviewed_score: float | None
+    duration_sec: int
+    hints_used: int
+    parent_assist: bool
+    exercises: list[ExerciseResultOut]
+
+
+class PracticeIn(BaseModel):
+    activity_ids: list[uuid.UUID] = Field(min_length=1, max_length=10)
+    scheduled_date: date | None = None  # default today (family time zone)
+
+
+class PracticeSkipped(BaseModel):
+    activity_id: uuid.UUID
+    reason: Literal["not_published", "cooldown", "already_open", "cap_reached", "not_allowed", "daily_limit"]
+
+
+class PracticeOut(BaseModel):
+    items: list[PlanItemOut]
+    skipped: list[PracticeSkipped]
+
+
+class PracticeSuggestionOut(BaseModel):
+    activity: ActivitySummary
+    reason: Literal["below_pass_mark", "weak_skill", "same_lesson"]
+    best_score: float | None
+    open_in_plan: bool
+
+
+# ---------------------------------------------------------------------------- release settings and coverage (admin)
+class ReleasePolicyIn(BaseModel):
+    release_threshold: float = Field(default=0.70, gt=0, le=1)
+    set_minutes: int = Field(default=45, ge=5, le=600)
+    set_max_activities: int = Field(default=5, ge=1, le=30)
+    max_open_items: int = Field(default=10, ge=1, le=100)
+    school_days: list[int] = Field(default_factory=lambda: [1, 2, 3, 4, 5, 6, 7], min_length=1, max_length=7)
+    strong_score: float = Field(default=0.85, gt=0, le=1)
+    revision_open_cap: int = Field(default=5, ge=0, le=50)
+    revision_cooldown_days: int = Field(default=1, ge=0, le=60)
+    child_daily_practice_limit: int = Field(default=3, ge=0, le=20)
+
+    @field_validator("school_days")
+    @classmethod
+    def _days(cls, v: list[int]) -> list[int]:
+        if any(d < 1 or d > 7 for d in v):
+            raise ValueError("school_days are ISO weekdays 1 (Monday) to 7 (Sunday)")
+        return sorted(set(v))
+
+
+class ReleasePolicyOut(ReleasePolicyIn):
+    scope_board: str = ""
+    scope_grade: str = ""
+    updated_at: datetime | None = None
+
+
+class ReleasePolicyKey(BaseModel):
+    board: str = Field(default="", max_length=20)
+    grade: str = Field(default="", max_length=20)
+
+
+class CoverageLessonOut(BaseModel):
+    position: int
+    title: str
+    published_activities: int
+    minutes: int
+
+
+class CoverageBookOut(BaseModel):
+    code: str
+    board_code: str
+    grade: str
+    subject_code: str
+    title: str
+    lessons: int
+    lessons_with_activities: int
+    lessons_below_target: int
+    published_activities: int
+    minutes: int
+    days_of_content: int  # at the default pace (the set size of the effective policy), counting every school day
+    weak_lessons: list[CoverageLessonOut]  # lessons with fewer than the target (first 10)
+
+
+class CoverageOut(BaseModel):
+    target_per_lesson: int
+    books: list[CoverageBookOut]
+
+
+class ReleasePreviewIn(BaseModel):
+    board_code: str = Field(max_length=20)
+    grade: str = Field(min_length=1, max_length=20)
+    days: int = Field(default=5, ge=1, le=30)
+
+
+class ReleasePreviewActivity(BaseModel):
+    slug: str
+    title: str
+    book_code: str
+    lesson_position: int
+    order: int
+    duration_min: int
+
+
+class ReleasePreviewDay(BaseModel):
+    day: int
+    activities: list[ReleasePreviewActivity]
+    minutes: int
+
+
+class ReleasePreviewOut(BaseModel):
+    board_code: str
+    grade: str
+    books: list[str]
+    days: list[ReleasePreviewDay]
+    remaining_activities: int

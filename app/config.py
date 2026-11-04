@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     email_from: str | None = None  # e.g. "LearnNest <verification@yourdomain.org>"
     email_brand: str = "LearnNest"  # the app name used in email subjects and bodies
     lesson_pass_score: float = 0.6  # a scored activity counts as passed for textbook progress at or above this (0-1)
+    # How a NEW family's activities are chosen: parent (parents plan, the original behaviour) or system (LearnNest
+    # releases new activities every day, see app/services/daily.py). Existing families keep their own setting.
+    new_family_plan_mode: Literal["parent", "system"] = "parent"
     temp_password_minutes: int = 60  # how long a forgot-password temporary password stays valid
     otp_ttl_minutes: int = 10
     otp_max_attempts: int = 5

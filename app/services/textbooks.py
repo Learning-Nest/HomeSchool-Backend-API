@@ -197,7 +197,7 @@ def next_up(db: Session, child_id: uuid.UUID, limit: int) -> list[NextUpOut]:
     enrolments = db.scalars(select(ChildBook).where(ChildBook.child_id == child_id).order_by(ChildBook.started_at))
     for en in enrolments:
         book = db.get(Book, en.book_code)
-        if book is None or book.status != "active":
+        if book is None or book.status != "active" or not en.active:
             continue
         rows = db.execute(
             select(Lesson, Activity)

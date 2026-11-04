@@ -11,7 +11,7 @@ from sqlalchemy import select
 from app.deps import ALL_ROLES, WRITE_ROLES, CurrentActor, DbSession, ParentActor, load_child
 from app.errors import ApiError
 from app.models import Activity, ActivitySession, Skill, SkillEvidence
-from app.routers.plans import items_between
+from app.routers.plans import today_items
 from app.schemas import (
     BaselineIn,
     BaselineOut,
@@ -164,7 +164,7 @@ def dashboard(child_id: uuid.UUID, actor: ParentActor, db: DbSession) -> Dashboa
     ws = pg.week_start_of(today)
     return DashboardOut(
         overview=pg.overview(db, child, ws, ws + timedelta(days=6)),
-        today=items_between(db, child.id, today, today + timedelta(days=1)),
+        today=today_items(db, child.id, today),
         recommendations=pg.recommendations(db, child, 3),
     )
 

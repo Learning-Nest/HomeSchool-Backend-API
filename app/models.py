@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    Numeric,
     Text,
     UniqueConstraint,
     func,
@@ -68,6 +70,8 @@ class Family(Base):
     id: Mapped[uuid.UUID] = _uuid_pk()
     name: Mapped[str] = mapped_column(Text)
     timezone: Mapped[str] = mapped_column(Text, default="Asia/Kolkata", server_default="Asia/Kolkata")
+    # parent = parents plan activities (original behaviour); system = LearnNest releases activities every day.
+    plan_mode: Mapped[str] = mapped_column(Text, default="parent", server_default="parent")
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = _now()
@@ -119,6 +123,9 @@ class Child(Base):
     display_name: Mapped[str] = mapped_column(Text)
     birth_year: Mapped[int | None] = mapped_column(Integer)
     level_code: Mapped[str | None] = mapped_column(Text)
+    board_code: Mapped[str | None] = mapped_column(ForeignKey("content.boards.code"))
+    grade: Mapped[str | None] = mapped_column(Text)
+    paused_until: Mapped[date | None] = mapped_column(Date)  # the daily release is paused up to and including this day
     avatar: Mapped[str] = mapped_column(Text, default="star", server_default="star")
     interests: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list, server_default="{}")
     goals: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list, server_default="{}")
@@ -331,6 +338,12 @@ class PlanItem(Base):
     scheduled_date: Mapped[date] = mapped_column(Date)
     position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     status: Mapped[str] = mapped_column(Text, default="planned", server_default="planned")
+    # source: parent (a parent planned it) | system (the daily release) | revision (practice again)
+    source: Mapped[str] = mapped_column(Text, default="parent", server_default="parent")
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    book_code: Mapped[str | None] = mapped_column(Text)
+    lesson_position: Mapped[int | None] = mapped_column(Integer)
+    released_on: Mapped[date | None] = mapped_column(Date)
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = _now()
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
@@ -345,6 +358,8 @@ class ActivitySession(Base):
     activity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("content.activities.id"))
     activity_version: Mapped[int] = mapped_column(Integer)
     plan_item_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("plan_items.id", ondelete="SET NULL"))
+    book_code: Mapped[str | None] = mapped_column(Text)  # copied from the plan item so lesson results stay stable
+    lesson_position: Mapped[int | None] = mapped_column(Integer)
     client_op_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
     status: Mapped[str] = mapped_column(Text, default="in_progress", server_default="in_progress")
     started_at: Mapped[datetime] = _now()
@@ -498,5 +513,39 @@ class ChildBook(Base):
     child_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("children.id", ondelete="CASCADE"), primary_key=True)
     book_code: Mapped[str] = mapped_column(ForeignKey("content.books.code"), primary_key=True)
     unlocked_through: Mapped[int] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(Text, default="parent", server_default="parent")  # parent | system
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    last_release_on: Mapped[date | None] = mapped_column(Date)
     started_at: Mapped[datetime] = _now()
+    updated_at: Mapped[datetime] = _now()
+
+
+class AssignmentBatch(Base):
+    """One daily release of activities for a child (the 'set')."""
+
+    __tablename__ = "assignment_batches"
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    family_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("families.id", ondelete="CASCADE"))
+    child_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("children.id", ondelete="CASCADE"))
+    released_on: Mapped[date] = mapped_column(Date)
+    item_count: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = _now()
+
+
+class ReleasePolicy(Base):
+    """Settings of the daily release. The most specific row wins: (board, grade), then (board, ''), then ('', '')."""
+
+    __tablename__ = "release_policies"
+    __table_args__ = {"schema": "content"}
+    scope_board: Mapped[str] = mapped_column(Text, primary_key=True, default="", server_default="")
+    scope_grade: Mapped[str] = mapped_column(Text, primary_key=True, default="", server_default="")
+    release_threshold: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=Decimal("0.70"))
+    set_minutes: Mapped[int] = mapped_column(Integer, default=45)
+    set_max_activities: Mapped[int] = mapped_column(Integer, default=5)
+    max_open_items: Mapped[int] = mapped_column(Integer, default=10)
+    school_days: Mapped[list[int]] = mapped_column(ARRAY(Integer), default=lambda: [1, 2, 3, 4, 5, 6, 7])
+    strong_score: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=Decimal("0.85"))
+    revision_open_cap: Mapped[int] = mapped_column(Integer, default=5)
+    revision_cooldown_days: Mapped[int] = mapped_column(Integer, default=1)
+    child_daily_practice_limit: Mapped[int] = mapped_column(Integer, default=3)
     updated_at: Mapped[datetime] = _now()

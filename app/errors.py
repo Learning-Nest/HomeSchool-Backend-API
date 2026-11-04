@@ -18,6 +18,7 @@ ERROR_CODES: dict[str, str] = {
     "guardian_verification_required": "A verified guardian is required before child data can be created.",
     "elevation_required": "Enter the parent PIN to continue.",
     "lesson_incomplete": "The lessons unlocked so far are not finished yet.",
+    "plan_managed": "LearnNest chooses this family's daily activities, so they cannot be planned by hand.",
     "pin_not_set": "No parent PIN has been set.",
     "pin_already_set": "A parent PIN is already set. Send current_pin to change it, or use the PIN reset.",
     "pin_locked": "The PIN is temporarily locked after too many attempts.",

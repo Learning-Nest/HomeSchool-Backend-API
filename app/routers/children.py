@@ -21,17 +21,24 @@ from app.deps import (
     require_guardian_verified,
 )
 from app.errors import ApiError, conflict
-from app.models import Child, ChildSession, Interest, Level
+from app.models import Board, Child, ChildSession, Interest, Level
 from app.schemas import ChildIn, ChildOut, ChildPatch, ChildSessionIn, ChildSessionOut
 from app.security import create_child_token, now
+from app.services import daily
 from app.services.events import audit, emit
 
 router = APIRouter(tags=["children"])
 
 
-def _validate_refs(db, level_code: str | None, interests: list[str] | None) -> None:
+def _validate_refs(
+    db, level_code: str | None, interests: list[str] | None, board_code: str | None = None, grade: str | None = None
+) -> None:
     if level_code and db.get(Level, level_code) is None:
         raise ApiError(422, "validation_error", f"Unknown level {level_code}.")
+    if board_code and db.get(Board, board_code) is None:
+        raise ApiError(422, "validation_error", f"Unknown board {board_code}.")
+    if grade is not None and not grade.strip():
+        raise ApiError(422, "validation_error", "The grade cannot be blank.")
     if interests:
         known = set(db.scalars(select(Interest.code).where(Interest.code.in_(interests))))
         missing = sorted(set(interests) - known)
@@ -43,18 +50,22 @@ def _validate_refs(db, level_code: str | None, interests: list[str] | None) -> N
 def create_child(family_id: uuid.UUID, body: ChildIn, actor: ParentActor, db: DbSession) -> Child:
     membership(db, actor, family_id, WRITE_ROLES)
     require_guardian_verified(db, family_id)
-    _validate_refs(db, body.level_code, body.interests)
+    _validate_refs(db, body.level_code, body.interests, body.board_code, body.grade)
     child = Child(
         family_id=family_id,
         display_name=body.display_name.strip(),
         birth_year=body.birth_year,
         level_code=body.level_code,
+        board_code=body.board_code,
+        grade=body.grade.strip() if body.grade else None,
         avatar=body.avatar,
         interests=body.interests,
         goals=body.goals,
     )
     db.add(child)
     db.flush()
+    if daily.is_system_family(db, family_id):
+        daily.auto_enrol(db, child)
     audit(
         db,
         "child.created",
@@ -89,9 +100,11 @@ def patch_child(child_id: uuid.UUID, body: ChildPatch, actor: ParentActor, db: D
     if child.version != body.version:
         raise conflict("This profile was changed elsewhere. Reload and try again.")
     changes = body.model_dump(exclude_unset=True, exclude={"version"})
-    _validate_refs(db, changes.get("level_code"), changes.get("interests"))
+    _validate_refs(db, changes.get("level_code"), changes.get("interests"), changes.get("board_code"), changes.get("grade"))
     for k, v in changes.items():
-        setattr(child, k, v.strip() if k == "display_name" and v else v)
+        setattr(child, k, v.strip() if k in ("display_name", "grade") and v else v)
+    if ("board_code" in changes or "grade" in changes) and daily.is_system_family(db, child.family_id):
+        daily.auto_enrol(db, child)
     child.version += 1
     child.updated_at = now()
     audit(

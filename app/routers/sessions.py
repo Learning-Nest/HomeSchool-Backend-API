@@ -99,6 +99,9 @@ def start(body: SessionStartIn, response: Response, actor: CurrentActor, db: DbS
         item = db.get(PlanItem, body.plan_item_id)
         if item is None or item.child_id != child.id or item.activity_id != activity.id:
             raise ApiError(422, "validation_error", "The plan item does not match this child and activity.")
+        book_code, lesson_position = item.book_code, item.lesson_position
+    else:
+        book_code = lesson_position = None
     catalog.snapshot(db, activity)
     s = ActivitySession(
         family_id=child.family_id,
@@ -106,6 +109,8 @@ def start(body: SessionStartIn, response: Response, actor: CurrentActor, db: DbS
         activity_id=activity.id,
         activity_version=activity.version,
         plan_item_id=body.plan_item_id,
+        book_code=book_code,
+        lesson_position=lesson_position,
         client_op_id=body.client_op_id,
     )
     try:

@@ -13,9 +13,9 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Query, Response
 from sqlalchemy import func, select, update
 
+from app import ratelimit
 from app.deps import AdminActor, DbSession, SuperAdminActor
 from app.errors import ApiError, not_found
-from app import ratelimit
 from app.models import Activity, ActivityEvent, AuditLog, RefreshToken, User
 from app.routers.admin import summaries
 from app.schemas import (

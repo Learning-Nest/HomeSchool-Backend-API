@@ -9,8 +9,8 @@ from sqlalchemy import func, select
 
 from app.deps import WRITE_ROLES, CurrentActor, DbSession, ParentActor, StaffActor, load_child
 from app.errors import ApiError, not_found
-from app.routers.admin import _require_editable, get_activity_for
 from app.models import Activity, ActivityLesson, Board, Book, ChildBook, Lesson
+from app.routers.admin import _require_editable, get_activity_for
 from app.schemas import (
     ActivityLessonsIn,
     BoardOut,
@@ -24,6 +24,7 @@ from app.schemas import (
     UnlockNextIn,
 )
 from app.security import now
+from app.services import daily
 from app.services import textbooks as tb
 from app.services.events import audit
 
@@ -31,6 +32,12 @@ router = APIRouter(prefix="/v1", tags=["textbooks"])
 
 
 # ------------------------------------------------------------------------------------------------ catalogue
+def _require_parent_mode(db, child) -> None:
+    """In system mode LearnNest follows the books and unlocks lessons itself (see app/services/daily.py)."""
+    if daily.is_system_family(db, child.family_id):
+        raise ApiError(403, "plan_managed")
+
+
 @router.get("/curriculum/boards", response_model=list[BoardOut])
 def boards(actor: CurrentActor, db: DbSession) -> list[Board]:
     return list(db.scalars(select(Board).order_by(Board.sort_order, Board.code)))
@@ -89,7 +96,9 @@ def _enrolment(db, child_id: uuid.UUID, book_code: str) -> ChildBook:
 def child_books(child_id: uuid.UUID, actor: CurrentActor, db: DbSession) -> list[ChildBookOut]:
     child = load_child(db, actor, child_id)
     out: list[ChildBookOut] = []
-    for en in db.scalars(select(ChildBook).where(ChildBook.child_id == child.id).order_by(ChildBook.started_at)):
+    for en in db.scalars(
+        select(ChildBook).where(ChildBook.child_id == child.id, ChildBook.active.is_(True)).order_by(ChildBook.started_at)
+    ):
         path = tb.build_path(db, child.id, en, show_locked_activities=False)
         out.append(
             ChildBookOut(
@@ -107,6 +116,7 @@ def child_books(child_id: uuid.UUID, actor: CurrentActor, db: DbSession) -> list
 def enrol(child_id: uuid.UUID, book_code: str, actor: ParentActor, db: DbSession) -> BookPathOut:
     """Starts a child on a textbook (idempotent): the first lesson with activities is unlocked."""
     child = load_child(db, actor, child_id, WRITE_ROLES)
+    _require_parent_mode(db, child)
     book = db.get(Book, book_code)
     if book is None or book.status != "active":
         raise not_found()
@@ -136,6 +146,7 @@ def enrol(child_id: uuid.UUID, book_code: str, actor: ParentActor, db: DbSession
 @router.delete("/children/{child_id}/books/{book_code}", status_code=204)
 def unenrol(child_id: uuid.UUID, book_code: str, actor: ParentActor, db: DbSession) -> Response:
     child = load_child(db, actor, child_id, WRITE_ROLES)
+    _require_parent_mode(db, child)
     en = _enrolment(db, child.id, book_code)
     db.delete(en)
     audit(
@@ -164,6 +175,7 @@ def unlock_next(
 ) -> BookPathOut:
     """Unlocks the next lesson (one at a time). Needs every unlocked lesson finished unless `force` is true."""
     child = load_child(db, actor, child_id, WRITE_ROLES)
+    _require_parent_mode(db, child)
     en = _enrolment(db, child.id, book_code)
     path = tb.build_path(db, child.id, en, show_locked_activities=True)
     if path.next_lesson_position is None:

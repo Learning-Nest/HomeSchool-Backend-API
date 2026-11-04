@@ -54,6 +54,7 @@ def signup(body: SignupIn, request: Request, db: DbSession) -> TokenOut:
     family = Family(
         name=(body.family_name or f"{body.full_name.strip()}'s family")[:120],
         timezone=body.timezone,
+        plan_mode=get_settings().new_family_plan_mode,
         created_by=user.id,
     )
     db.add(family)
