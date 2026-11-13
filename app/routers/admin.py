@@ -13,7 +13,7 @@ from sqlalchemy import func, or_, select
 
 from app.deps import AdminActor, DbSession, StaffActor
 from app.errors import ApiError, not_found
-from app.models import Activity, ActivityAssignment, ActivitySkill, Family, Skill, User
+from app.models import Activity, ActivityAssignment, ActivitySkill, Family, Level, Skill, User
 from app.schemas import (
     ActivityDraftIn,
     AdminActivityDetail,
@@ -184,7 +184,8 @@ def list_activities(
     subject: str | None = None,
     author: uuid.UUID | None = None,
     q: str | None = Query(default=None, max_length=80),
-    limit: int = Query(default=50, ge=1, le=200),
+    level: str | None = Query(default=None, description="activities whose level range includes this level code"),
+    limit: int = Query(default=50, ge=1, le=1001),
     offset: int = Query(default=0, ge=0),
 ) -> list[AdminActivitySummary]:
     stmt = select(Activity)
@@ -202,6 +203,13 @@ def list_activities(
         stmt = stmt.where(Activity.status == status)
     if subject:
         stmt = stmt.where(Activity.subject_code == subject)
+    if level:
+        wanted = db.scalar(select(Level.sort_order).where(Level.code == level))
+        if wanted is None:
+            raise ApiError(422, "validation_error", "Unknown level.")
+        low = select(Level.sort_order).where(Level.code == Activity.level_from).scalar_subquery()
+        high = select(Level.sort_order).where(Level.code == Activity.level_to).scalar_subquery()
+        stmt = stmt.where(low <= wanted, high >= wanted)
     if q:
         like = f"%{q.lower()}%"
         stmt = stmt.where(or_(func.lower(Activity.title).like(like), func.lower(Activity.slug).like(like)))

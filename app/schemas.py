@@ -663,6 +663,35 @@ class AssignmentCreateOut(BaseModel):
     email_sent: bool
 
 
+class AssignmentBulkIn(BaseModel):
+    """One brief and one due date for many drafts, all going to one educator."""
+
+    activity_ids: list[uuid.UUID] = Field(min_length=1, max_length=1000)
+    educator_id: uuid.UUID
+    requirements: str = Field(min_length=1, max_length=4000)
+    due_date: date | None = None
+
+    @field_validator("requirements")
+    @classmethod
+    def _requirements_not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Write what the educator needs to do.")
+        return v
+
+
+class AssignmentSkipped(BaseModel):
+    activity_id: uuid.UUID
+    title: str | None = None
+    reason: str  # not_found | not_draft | already_assigned
+
+
+class AssignmentBulkOut(BaseModel):
+    assigned: int  # activities handed over (and counted in the one email)
+    skipped: list[AssignmentSkipped]
+    email_sent: bool  # false when nothing was assigned or the email could not be sent
+
+
 class EducatorOut(BaseModel):
     id: uuid.UUID
     email: str

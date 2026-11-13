@@ -8,7 +8,7 @@ from sqlalchemy import text
 from app.errors import ApiError
 from app.services import assignments as assignment_service
 from app.services import email as email_service
-from tests.test_educators import new_draft, valid_draft
+from tests.test_educators import MIN_DRAFT, new_draft, valid_draft
 
 REQ = "Write six exercises on counting to 20. Include one hands-on task and a hint for every question."
 
@@ -232,3 +232,116 @@ def test_capabilities_mention_assignments(make_admin):
     assert "assignments.view_own" in make_admin("educator").get("/v1/admin/me").json()["capabilities"]
     assert "assignments.manage" in make_admin("content_admin").get("/v1/admin/me").json()["capabilities"]
     assert "assignments.manage" not in make_admin("educator").get("/v1/admin/me").json()["capabilities"]
+
+
+# ------------------------------------------------------------------------------------------------ bulk assignment
+def bulk(admin, ids, educator, requirements=REQ, **extra):
+    return admin.post(
+        "/v1/admin/assignments/bulk",
+        json={"activity_ids": ids, "educator_id": educator.user_id, "requirements": requirements, **extra},
+    )
+
+
+def test_bulk_assignment_hands_over_every_draft_and_sends_one_email(make_admin):
+    admin, edu = make_admin("content_admin"), make_admin("educator")
+    drafts = [new_draft(admin) for _ in range(3)]
+    ids = [d["id"] for d in drafts]
+    email_service.OUTBOX.clear()
+    r = bulk(admin, ids, edu, due_date=tomorrow())
+    assert r.status_code == 200, r.text
+    assert r.json() == {"assigned": 3, "skipped": [], "email_sent": True}
+    mails = [m for m in email_service.OUTBOX if m.to == edu.email]
+    assert len(mails) == 1  # one email for the whole batch
+    assert "3 draft activities" in mails[0].body and "counting to 20" in mails[0].body
+    assert "3" in mails[0].subject and "password" not in mails[0].body.lower()
+    # Every draft carries the same brief and due date, and the educator reaches all of them.
+    mine = edu.get("/v1/admin/assignments").json()
+    assert sorted(x["activity_id"] for x in mine) == sorted(ids)
+    assert {x["requirements"] for x in mine} == {REQ} and {x["due_date"] for x in mine} == {tomorrow()}
+    for i in ids:
+        assert edu.get(f"/v1/admin/activities/{i}").status_code == 200
+    # Each activity's log shows it, and the batch itself is audited once.
+    log = admin.get("/v1/admin/activity-log", params={"activity_id": ids[0], "action": "assigned"}).json()
+    assert len(log) == 1 and log[0]["detail"]["educator_id"] == edu.user_id
+
+
+def test_bulk_assignment_skips_what_cannot_be_assigned_and_counts_only_the_rest(make_admin):
+    admin, edu, other = make_admin("content_admin"), make_admin("educator"), make_admin("educator")
+    fresh, held_by_other, already_mine = new_draft(admin), new_draft(admin), new_draft(admin)
+    assert assign(admin, held_by_other["id"], other).status_code == 201
+    assert assign(admin, already_mine["id"], edu).status_code == 201
+    published = admin.get("/v1/admin/activities", params={"status": "published", "limit": 1}).json()[0]
+    missing = "00000000-0000-4000-8000-000000000001"
+    email_service.OUTBOX.clear()
+    ids = [fresh["id"], held_by_other["id"], already_mine["id"], published["id"], missing, fresh["id"]]
+    r = bulk(admin, ids, edu)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["assigned"] == 2 and body["email_sent"] is True  # the repeated id counts once
+    reasons = {x["activity_id"]: x["reason"] for x in body["skipped"]}
+    assert reasons == {already_mine["id"]: "already_assigned", published["id"]: "not_draft", missing: "not_found"}
+    mails = [m for m in email_service.OUTBOX if m.to == edu.email]
+    assert len(mails) == 1 and "2 draft activities" in mails[0].body
+    # The one held by someone else moved, keeping history.
+    assert other.get(f"/v1/admin/activities/{held_by_other['id']}").status_code == 404
+    assert edu.get(f"/v1/admin/activities/{held_by_other['id']}").status_code == 200
+
+
+def test_bulk_assignment_with_nothing_to_assign_sends_no_email(make_admin):
+    admin, edu = make_admin("content_admin"), make_admin("educator")
+    mine = new_draft(admin)
+    assert assign(admin, mine["id"], edu).status_code == 201
+    email_service.OUTBOX.clear()
+    r = bulk(admin, [mine["id"]], edu)
+    assert r.status_code == 200 and r.json()["assigned"] == 0 and r.json()["email_sent"] is False
+    assert not [m for m in email_service.OUTBOX if m.to == edu.email]
+
+
+def test_bulk_assignment_for_one_draft_reads_naturally(make_admin):
+    admin, edu = make_admin("content_admin"), make_admin("educator")
+    email_service.OUTBOX.clear()
+    assert bulk(admin, [new_draft(admin)["id"]], edu).json()["assigned"] == 1
+    assert "1 draft activity" in email_service.OUTBOX[-1].body
+
+
+def test_bulk_assignment_checks_the_educator_the_date_and_the_caller(make_admin):
+    admin, sup, edu = make_admin("content_admin"), make_admin("super_admin"), make_admin("educator")
+    a = new_draft(admin)
+    yesterday = (assignment_service.today() - timedelta(days=1)).isoformat()
+    assert bulk(admin, [a["id"]], edu, due_date=yesterday).status_code == 422
+    assert bulk(admin, [a["id"]], admin).status_code == 404  # an admin is not an educator
+    assert sup.patch(f"/v1/admin/educators/{edu.user_id}", json={"active": False}).status_code == 200
+    assert bulk(admin, [a["id"]], edu).status_code == 409
+    other = make_admin("educator")
+    assert bulk(other, [a["id"]], other).status_code == 403  # educators cannot assign
+    assert bulk(admin, [], other).status_code == 422
+    assert bulk(admin, [a["id"]], other, requirements="   ").status_code == 422
+
+
+def test_bulk_assignment_survives_a_mail_failure(make_admin, monkeypatch):
+    admin, edu = make_admin("content_admin"), make_admin("educator")
+
+    def broken(*args, **kwargs):
+        raise ApiError(503, "unavailable", "mail down")
+
+    monkeypatch.setattr(email_service, "send_bulk_activity_assignment", broken)
+    r = bulk(admin, [new_draft(admin)["id"]], edu)
+    assert r.status_code == 200 and r.json()["assigned"] == 1 and r.json()["email_sent"] is False
+
+
+# ------------------------------------------------------------------------------------------------ list filters
+def test_activity_list_filters_by_level_and_allows_a_thousand_rows(make_admin):
+    admin = make_admin("content_admin")
+    l1 = new_draft(admin, {**MIN_DRAFT, "title": "Level one only"})
+    l23 = new_draft(admin, {**MIN_DRAFT, "title": "Levels two to three", "level_from": "L2", "level_to": "L3"})
+
+    def ids(level):
+        r = admin.get("/v1/admin/activities", params={"level": level, "limit": 1001})
+        assert r.status_code == 200, r.text
+        return {x["id"] for x in r.json()}
+
+    assert l1["id"] in ids("L1") and l23["id"] not in ids("L1")
+    assert l23["id"] in ids("L2") and l1["id"] not in ids("L2")  # a range matches every level inside it
+    assert l23["id"] in ids("L3")
+    assert admin.get("/v1/admin/activities", params={"level": "L99"}).status_code == 422
+    assert admin.get("/v1/admin/activities", params={"limit": 1002}).status_code == 422

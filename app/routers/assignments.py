@@ -14,7 +14,16 @@ from sqlalchemy import select
 from app.deps import AdminActor, DbSession, StaffActor
 from app.errors import ApiError, not_found
 from app.models import Activity, ActivityAssignment, User
-from app.schemas import AssignmentCreateIn, AssignmentCreateOut, AssignmentOut, AssignmentPatchIn, AssignmentStatus
+from app.schemas import (
+    AssignmentBulkIn,
+    AssignmentBulkOut,
+    AssignmentCreateIn,
+    AssignmentCreateOut,
+    AssignmentOut,
+    AssignmentPatchIn,
+    AssignmentSkipped,
+    AssignmentStatus,
+)
 from app.security import now
 from app.services import assignments as svc
 from app.services import email as email_service
@@ -30,6 +39,18 @@ def _assignment_for(db, actor, assignment_id: uuid.UUID) -> ActivityAssignment:
     return row
 
 
+def _usable_educator(db, educator_id: uuid.UUID, due_date) -> User:
+    """The checks shared by single and bulk assignment: a real, active educator and a due date that is not past."""
+    educator = db.get(User, educator_id)
+    if educator is None or educator.platform_role != "educator":
+        raise ApiError(404, "not_found", "That person is not an educator.")
+    if educator.status != "active":
+        raise ApiError(409, "conflict", "This educator is disabled. Re-enable them before assigning work.")
+    if due_date is not None and due_date < svc.today():
+        raise ApiError(422, "validation_error", "The due date cannot be in the past.")
+    return educator
+
+
 @router.post("/activities/{activity_id}/assignments", response_model=AssignmentCreateOut, status_code=201)
 def assign_activity(
     activity_id: uuid.UUID, body: AssignmentCreateIn, actor: AdminActor, db: DbSession
@@ -41,13 +62,7 @@ def assign_activity(
         raise not_found()
     if activity.status != "draft":
         raise ApiError(409, "conflict", f"Only a draft can be assigned (this one is {activity.status}).")
-    educator = db.get(User, body.educator_id)
-    if educator is None or educator.platform_role != "educator":
-        raise ApiError(404, "not_found", "That person is not an educator.")
-    if educator.status != "active":
-        raise ApiError(409, "conflict", "This educator is disabled. Re-enable them before assigning work.")
-    if body.due_date is not None and body.due_date < svc.today():
-        raise ApiError(422, "validation_error", "The due date cannot be in the past.")
+    educator = _usable_educator(db, body.educator_id, body.due_date)
     current = svc.live_assignment(db, activity.id)
     if current is not None:
         if current.educator_id == educator.id:
@@ -99,6 +114,92 @@ def assign_activity(
     except ApiError:
         sent = False
     return AssignmentCreateOut(assignment=svc.outs(db, [row])[0], email_sent=sent)
+
+
+@router.post("/assignments/bulk", response_model=AssignmentBulkOut)
+def assign_in_bulk(body: AssignmentBulkIn, actor: AdminActor, db: DbSession) -> AssignmentBulkOut:
+    """Hands many drafts to one educator with the same brief and due date, and sends them ONE email with the count.
+
+    Drafts that cannot be assigned are skipped and reported (not found, not a draft any more, or already with this
+    educator); a draft held by someone else moves to this educator, as in single assignment. If nothing could be
+    assigned, nothing is emailed."""
+    educator = _usable_educator(db, body.educator_id, body.due_date)
+    ids = list(dict.fromkeys(body.activity_ids))  # the same id twice must not be assigned (or counted) twice
+    found = {a.id: a for a in db.scalars(select(Activity).where(Activity.id.in_(ids)))}
+    live = {
+        r.activity_id: r
+        for r in db.scalars(
+            select(ActivityAssignment).where(
+                ActivityAssignment.activity_id.in_(ids), ActivityAssignment.status.in_(svc.LIVE)
+            )
+        )
+    }
+    skipped: list[AssignmentSkipped] = []
+    done = 0
+    for activity_id in ids:
+        activity = found.get(activity_id)
+        if activity is None:
+            skipped.append(AssignmentSkipped(activity_id=activity_id, reason="not_found"))
+            continue
+        if activity.status != "draft":
+            skipped.append(AssignmentSkipped(activity_id=activity_id, title=activity.title, reason="not_draft"))
+            continue
+        current = live.get(activity_id)
+        if current is not None:
+            if current.educator_id == educator.id:
+                skipped.append(
+                    AssignmentSkipped(activity_id=activity_id, title=activity.title, reason="already_assigned")
+                )
+                continue
+            svc.close(db, current, "cancelled", actor.user_id, activity, reason="reassigned")
+            db.flush()  # free the one-live-assignment slot before inserting the replacement
+        row = ActivityAssignment(
+            activity_id=activity.id,
+            educator_id=educator.id,
+            assigned_by=actor.user_id,
+            requirements=body.requirements,
+            due_date=body.due_date,
+        )
+        db.add(row)
+        db.flush()
+        record_activity_event(
+            db,
+            activity,
+            actor.user_id,
+            "assigned",
+            assignment_id=str(row.id),
+            educator_id=str(educator.id),
+            educator_name=educator.full_name,
+            bulk=True,
+            **({"due_date": body.due_date.isoformat()} if body.due_date else {}),
+        )
+        done += 1
+    sent = False
+    if done:
+        audit(
+            db,
+            "assignment.bulk_created",
+            actor_user_id=actor.user_id,
+            entity="user",
+            entity_id=educator.id,
+            count=done,
+            skipped=len(skipped),
+            request_id=actor.request_id,
+        )
+        admin = db.get(User, actor.user_id)
+        try:
+            email_service.send_bulk_activity_assignment(
+                educator.email,
+                educator.full_name,
+                done,
+                body.requirements,
+                body.due_date,
+                admin.full_name if admin else "An administrator",
+            )
+            sent = True
+        except ApiError:
+            sent = False
+    return AssignmentBulkOut(assigned=done, skipped=skipped, email_sent=sent)
 
 
 @router.get("/assignments", response_model=list[AssignmentOut])

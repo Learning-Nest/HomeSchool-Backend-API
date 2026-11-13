@@ -151,3 +151,21 @@ def send_activity_assignment(
         f"Sign in to the {brand} educator console and open “My assignments” to start. "
         "When you are done, check the activity and send it for review.\n",
     )
+
+
+def send_bulk_activity_assignment(
+    to: str, full_name: str, count: int, requirements: str, due_date, assigned_by: str
+) -> None:
+    """One email for a whole batch of drafts handed to an educator at once: how many, the shared brief and due date."""
+    brand = get_settings().email_brand
+    noun = "draft activity" if count == 1 else "draft activities"
+    due = f"Due: {due_date.strftime('%d %B %Y')}\n\n" if due_date else ""
+    send_email(
+        to,
+        f"{count} new {brand} {'assignment' if count == 1 else 'assignments'}",
+        f"Hello {full_name},\n\n"
+        f"{assigned_by} has assigned you {count} {noun}.\n\n"
+        f"{due}What is needed (the same for each):\n\n{requirements}\n\n"
+        f"Sign in to the {brand} educator console and open “My assignments” to see them. "
+        "When you are done with each one, check it and send it for review.\n",
+    )
