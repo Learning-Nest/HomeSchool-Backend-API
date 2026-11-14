@@ -602,6 +602,42 @@ class AssetOut(Out):
     sha256: str
     created_at: datetime
     url: str | None = None  # short-lived preview link
+    ai_generated: bool = False  # made with the AI picture generator
+
+
+AiImageStyle = Literal["storybook", "flat", "diagram", "none"]
+AiImageSize = Literal["1024x1024", "1536x1024", "1024x1536"]
+AiImageQuality = Literal["low", "medium", "high"]
+
+
+class AiImageGenerateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    description: str = Field(min_length=1, max_length=4000)
+    style: AiImageStyle = "storybook"
+    size: AiImageSize = "1024x1024"
+    quality: AiImageQuality = "medium"
+    n: int = Field(default=1, ge=1, le=2)
+    avoid_text: bool = False  # true asks for no words in the picture; leave false for labelled diagrams
+
+    @field_validator("description")
+    @classmethod
+    def _description_not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Describe the picture you want.")
+        return v
+
+
+class AiGeneratedImage(BaseModel):
+    mime_type: str
+    b64_json: str  # the picture, base64 encoded
+
+
+class AiImageGenerateOut(BaseModel):
+    generation_id: uuid.UUID  # send it with the upload (?generation_id=) to keep a picture and mark it as AI-made
+    images: list[AiGeneratedImage]
+    remaining_today: int | None = None  # null when there is no daily limit
 
 
 AssignmentStatus = Literal["open", "submitted", "completed", "cancelled"]

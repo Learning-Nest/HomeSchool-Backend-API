@@ -102,6 +102,14 @@ class Settings(BaseSettings):
         ""  # only for the local storage backend: prefix of download links (e.g. http://10.0.2.2:8000)
     )
 
+    # AI pictures: the CustomAI service makes the picture; this API checks who may ask and passes the request on.
+    ai_image_enabled: bool = False  # switch on only once the service is deployed and its address and key are set
+    ai_service_url: str = ""  # e.g. https://ca-hs-dev-ai.internal.<domain> (private address inside the environment)
+    ai_service_api_key: SecretStr = SecretStr("")
+    ai_request_timeout_seconds: float = 150.0  # a picture takes up to a minute or so
+    ai_max_concurrent_generations: int = 4  # pictures being made at one moment by this replica
+    ai_image_daily_limit_per_user: int = 0  # 0 = no limit
+
     # Features and client policy
     min_app_version: str = "0.1.0"
     enable_recommendations: bool = True
@@ -156,6 +164,20 @@ class Settings(BaseSettings):
                 raise ValueError("MSG91_AUTH_KEY and MSG91_TEMPLATE_ID must both be set when OTP_PROVIDER=msg91")
         if self.app_env == "prod" and self.email_provider != "smtp":
             raise ValueError("EMAIL_PROVIDER must be smtp in prod (the console provider writes messages to the log)")
+        return self
+
+    @model_validator(mode="after")
+    def _check_ai_settings(self) -> Settings:
+        if self.ai_image_enabled:
+            url = self.ai_service_url
+            if not url.startswith(("https://", "http://")):
+                raise ValueError("AI_SERVICE_URL must be an http(s) URL when AI_IMAGE_ENABLED=true")
+            if self.is_deployed and not url.startswith("https://"):
+                raise ValueError("AI_SERVICE_URL must be an https URL in nonprod/prod")
+            if len(self.ai_service_api_key.get_secret_value()) < 24:
+                raise ValueError("AI_SERVICE_API_KEY must be set (at least 24 characters) when AI_IMAGE_ENABLED=true")
+        if self.ai_max_concurrent_generations < 1 or self.ai_image_daily_limit_per_user < 0:
+            raise ValueError("AI_MAX_CONCURRENT_GENERATIONS must be at least 1 and AI_IMAGE_DAILY_LIMIT_PER_USER at least 0")
         return self
 
     @model_validator(mode="after")

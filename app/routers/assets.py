@@ -16,7 +16,7 @@ from app import ratelimit
 from app.config import get_settings
 from app.deps import DbSession, StaffActor
 from app.errors import ApiError, not_found
-from app.models import ActivityVersion, Asset
+from app.models import ActivityVersion, AiGeneration, Asset
 from app.routers.admin import _require_editable, get_activity_for
 from app.schemas import AssetOut
 from app.security import now
@@ -37,7 +37,13 @@ def _out(asset: Asset, request: Request) -> AssetOut:
 
 @router.post("/v1/admin/assets", response_model=AssetOut, status_code=201)
 async def upload_asset(
-    request: Request, actor: StaffActor, db: DbSession, activity_id: uuid.UUID = Query()
+    request: Request,
+    actor: StaffActor,
+    db: DbSession,
+    activity_id: uuid.UUID = Query(),
+    generation_id: uuid.UUID | None = Query(
+        default=None, description="The generation_id of an AI picture request; marks the new asset as made with AI"
+    ),
 ) -> AssetOut:
     s = get_settings()
     if not storage_ready(s):
@@ -45,6 +51,10 @@ async def upload_asset(
     a = get_activity_for(db, actor, activity_id)
     _require_editable(actor, a)
     ratelimit.check(f"asset-upload:{actor.user_id}", 60, 3600)
+    if generation_id is not None:
+        gen = db.get(AiGeneration, generation_id)
+        if gen is None or gen.activity_id != a.id or gen.user_id != actor.user_id:
+            raise ApiError(422, "validation_error", "That picture was not generated for this activity by you.")
     ctype = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
     if ctype not in ALLOWED_UPLOAD_TYPES:
         raise ApiError(415, "asset_type_not_allowed")
@@ -84,10 +94,20 @@ async def upload_asset(
         width=width,
         height=height,
         sha256=digest,
+        ai_generation_id=generation_id,
     )
     db.add(asset)
     db.flush()
-    record_activity_event(db, a, actor.user_id, "image_added", coalesce_minutes=0, asset=str(asset.id), bytes=len(data))
+    record_activity_event(
+        db,
+        a,
+        actor.user_id,
+        "image_added",
+        coalesce_minutes=0,
+        asset=str(asset.id),
+        bytes=len(data),
+        **({"ai_generated": True} if generation_id is not None else {}),
+    )
     return _out(asset, request)
 
 

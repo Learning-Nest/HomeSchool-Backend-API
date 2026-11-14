@@ -291,6 +291,32 @@ class Asset(Base):
     sha256: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = _now()
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Set when the picture was made with the AI generator (the request that produced it); null for a plain upload.
+    ai_generation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("content.ai_generations.id", ondelete="SET NULL")
+    )
+
+    @property
+    def ai_generated(self) -> bool:
+        return self.ai_generation_id is not None
+
+
+class AiGeneration(Base):
+    """One successful picture-generation request: who asked, for which activity, and what they typed."""
+
+    __tablename__ = "ai_generations"
+    __table_args__ = {"schema": "content"}
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    activity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("content.activities.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    description: Mapped[str] = mapped_column(Text)
+    style: Mapped[str] = mapped_column(Text)
+    size: Mapped[str] = mapped_column(Text)
+    quality: Mapped[str] = mapped_column(Text)
+    images: Mapped[int] = mapped_column(Integer)
+    avoid_text: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    model: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _now()
 
 
 class ActivityVersion(Base):

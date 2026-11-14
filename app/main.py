@@ -17,6 +17,7 @@ from app.errors import install_error_handlers
 from app.logging_setup import setup_logging
 from app.routers import (
     admin,
+    ai_images,
     assets,
     assignments,
     auth,
@@ -141,6 +142,7 @@ def create_app() -> FastAPI:
         educators,
         assignments,
         assets,
+        ai_images,
         planned,
         scrum,
         textbooks,

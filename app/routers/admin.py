@@ -11,6 +11,7 @@ import uuid
 from fastapi import APIRouter, Query
 from sqlalchemy import func, or_, select
 
+from app.config import get_settings
 from app.deps import AdminActor, DbSession, StaffActor
 from app.errors import ApiError, not_found
 from app.models import Activity, ActivityAssignment, ActivitySkill, Family, Level, Skill, User
@@ -155,12 +156,15 @@ CAPABILITIES["super_admin"] = [*CAPABILITIES["content_admin"], "educators.manage
 @router.get("/me", response_model=StaffMeOut)
 def me(actor: StaffActor, db: DbSession) -> StaffMeOut:
     u = db.get(User, actor.user_id)
+    capabilities = list(CAPABILITIES[actor.platform_role])
+    if get_settings().ai_image_enabled:
+        capabilities.append("images.generate")
     return StaffMeOut(
         user_id=u.id,
         email=u.email,
         full_name=u.full_name,
         platform_role=actor.platform_role,
-        capabilities=CAPABILITIES[actor.platform_role],
+        capabilities=capabilities,
     )
 
 
