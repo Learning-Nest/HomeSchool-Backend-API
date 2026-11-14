@@ -605,6 +605,34 @@ class AssetOut(Out):
     ai_generated: bool = False  # made with the AI picture generator
 
 
+LibrarySearchMode = Literal["keyword"]  # "similar" (by meaning) can be added later without changing the endpoint
+
+
+class LibraryPictureOut(BaseModel):
+    id: uuid.UUID
+    description: str
+    style: str
+    width: int
+    height: int
+    bytes: int
+    uses: int
+    created_at: datetime
+    created_by_name: str | None = None
+    url: str | None = None  # short-lived preview link
+    score: float | None = None  # 0-1 for a search, null when just browsing; only comparable inside one search
+
+
+class LibrarySearchOut(BaseModel):
+    mode: LibrarySearchMode
+    items: list[LibraryPictureOut]
+    has_more: bool
+
+
+class LibraryUseIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    picture_id: uuid.UUID
+
+
 AiImageStyle = Literal["storybook", "flat", "diagram", "none"]
 AiImageSize = Literal["1024x1024", "1536x1024", "1024x1536"]
 AiImageQuality = Literal["low", "medium", "high"]

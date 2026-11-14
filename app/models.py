@@ -319,6 +319,33 @@ class AiGeneration(Base):
     created_at: Mapped[datetime] = _now()
 
 
+class LibraryPicture(Base):
+    """A picture made with the AI generator that someone chose to use, kept for other educators to find and reuse.
+
+    The library owns its copy of the bytes, so it does not depend on the activity the picture was first used in.
+    """
+
+    __tablename__ = "library_pictures"
+    __table_args__ = {"schema": "content"}
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    description: Mapped[str] = mapped_column(Text)
+    style: Mapped[str] = mapped_column(Text)
+    size: Mapped[str] = mapped_column(Text)
+    quality: Mapped[str] = mapped_column(Text)
+    blob_path: Mapped[str] = mapped_column(Text)
+    content_type: Mapped[str] = mapped_column(Text)
+    bytes: Mapped[int] = mapped_column(Integer)
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(Text, unique=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    ai_generation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("content.ai_generations.id", ondelete="SET NULL")
+    )
+    uses: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = _now()
+
+
 class ActivityVersion(Base):
     """Immutable snapshot of a published definition. Sessions point at (activity_id, version), never at the live row."""
 

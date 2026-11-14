@@ -159,6 +159,7 @@ def me(actor: StaffActor, db: DbSession) -> StaffMeOut:
     capabilities = list(CAPABILITIES[actor.platform_role])
     if get_settings().ai_image_enabled:
         capabilities.append("images.generate")
+        capabilities.append("images.library")
     return StaffMeOut(
         user_id=u.id,
         email=u.email,

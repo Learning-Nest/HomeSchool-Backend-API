@@ -2,72 +2,16 @@
 rules, failure mapping and the optional daily limit. Nothing here reaches the real service or OpenAI."""
 
 import base64
-import json
 
 import httpx
 import pytest
 
 from app import config
-from app.config import Settings, get_settings
+from app.config import Settings
 from app.services import ai_images
+from tests.conftest import AI_KEY as KEY  # noqa: E402
 from tests.test_educators import new_draft, valid_draft
 from tests.test_images import png
-
-KEY = "ai-service-key-" + "k" * 24
-
-
-@pytest.fixture
-def ai_on(monkeypatch):
-    """The AI switch on, pointing at a made-up address, with settings re-read around the test."""
-    monkeypatch.setenv("AI_IMAGE_ENABLED", "true")
-    monkeypatch.setenv("AI_SERVICE_URL", "https://ai.test")
-    monkeypatch.setenv("AI_SERVICE_API_KEY", KEY)
-    config.reset_settings_cache()
-    yield
-    monkeypatch.undo()
-    config.reset_settings_cache()
-
-
-class FakeAi:
-    """Stands in for the CustomAI service. Replace `respond` to make it misbehave."""
-
-    def __init__(self):
-        self.requests: list[httpx.Request] = []
-        self.picture = base64.b64encode(png((64, 48))).decode()
-
-    def respond(self, request: httpx.Request) -> httpx.Response:
-        n = int(json.loads(request.content)["n"])
-        return httpx.Response(
-            200,
-            json={
-                "request_id": "r",
-                "model": "fake-model",
-                "images": [{"mime_type": "image/png", "b64_json": self.picture} for _ in range(n)],
-            },
-        )
-
-    def handle(self, request: httpx.Request) -> httpx.Response:
-        self.requests.append(request)
-        return self.respond(request)
-
-    @property
-    def sent(self) -> list[dict]:
-        return [json.loads(r.content) for r in self.requests]
-
-
-@pytest.fixture
-def fake_ai(ai_on, monkeypatch):
-    fake = FakeAi()
-
-    def make_client() -> httpx.AsyncClient:
-        return httpx.AsyncClient(
-            transport=httpx.MockTransport(fake.handle),
-            base_url=get_settings().ai_service_url,
-            headers={"X-API-Key": get_settings().ai_service_api_key.get_secret_value()},
-        )
-
-    monkeypatch.setattr(ai_images, "make_client", make_client)
-    return fake
 
 
 def generate(user, activity_id, **body):

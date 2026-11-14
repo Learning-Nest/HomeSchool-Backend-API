@@ -3,12 +3,15 @@ connecting as the same least-privilege role that production uses, so Row-Level S
 
 from __future__ import annotations
 
+import base64
+import json
 import os
 import secrets
 import tempfile
 import uuid
 from pathlib import Path
 
+import httpx
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
@@ -228,3 +231,68 @@ def make_admin(database, client):
         return Parent(client, email, r.json())
 
     return _make
+
+
+# ---------------------------------------------------------------------------- the AI picture service (fake)
+AI_KEY = "ai-service-key-" + "k" * 24
+
+
+@pytest.fixture
+def ai_on(monkeypatch):
+    """The AI switch on, pointing at a made-up address, with settings re-read around the test."""
+    from app import config
+
+    monkeypatch.setenv("AI_IMAGE_ENABLED", "true")
+    monkeypatch.setenv("AI_SERVICE_URL", "https://ai.test")
+    monkeypatch.setenv("AI_SERVICE_API_KEY", AI_KEY)
+    config.reset_settings_cache()
+    yield
+    monkeypatch.undo()
+    config.reset_settings_cache()
+
+
+class FakeAi:
+    """Stands in for the CustomAI service. Replace `respond` to make it misbehave."""
+
+    def __init__(self):
+        self.requests: list[httpx.Request] = []
+        from tests.test_images import png
+
+        self.picture = base64.b64encode(png((64, 48))).decode()
+
+    def respond(self, request: httpx.Request) -> httpx.Response:
+        n = int(json.loads(request.content)["n"])
+        return httpx.Response(
+            200,
+            json={
+                "request_id": "r",
+                "model": "fake-model",
+                "images": [{"mime_type": "image/png", "b64_json": self.picture} for _ in range(n)],
+            },
+        )
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        return self.respond(request)
+
+    @property
+    def sent(self) -> list[dict]:
+        return [json.loads(r.content) for r in self.requests]
+
+
+@pytest.fixture
+def fake_ai(ai_on, monkeypatch):
+    from app.config import get_settings
+    from app.services import ai_images
+
+    fake = FakeAi()
+
+    def make_client() -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            transport=httpx.MockTransport(fake.handle),
+            base_url=get_settings().ai_service_url,
+            headers={"X-API-Key": get_settings().ai_service_api_key.get_secret_value()},
+        )
+
+    monkeypatch.setattr(ai_images, "make_client", make_client)
+    return fake

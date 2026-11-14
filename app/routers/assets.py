@@ -20,6 +20,7 @@ from app.models import ActivityVersion, AiGeneration, Asset
 from app.routers.admin import _require_editable, get_activity_for
 from app.schemas import AssetOut
 from app.security import now
+from app.services import picture_library
 from app.services.events import record_activity_event
 from app.services.images import blob_path, collect_image_refs, process_image, sha256_hex
 from app.services.storage import LocalStorage, get_storage, storage_ready
@@ -51,6 +52,7 @@ async def upload_asset(
     a = get_activity_for(db, actor, activity_id)
     _require_editable(actor, a)
     ratelimit.check(f"asset-upload:{actor.user_id}", 60, 3600)
+    gen = None
     if generation_id is not None:
         gen = db.get(AiGeneration, generation_id)
         if gen is None or gen.activity_id != a.id or gen.user_id != actor.user_id:
@@ -98,6 +100,11 @@ async def upload_asset(
     )
     db.add(asset)
     db.flush()
+    if gen is not None:
+        # A picture someone chose to use goes into the shared library, so others can reuse it instead of paying for a new one.
+        picture_library.add_from_generation(
+            db, gen, data=data, sha256=digest, width=width, height=height, user_id=actor.user_id
+        )
     record_activity_event(
         db,
         a,
